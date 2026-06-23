@@ -1,7 +1,7 @@
 export const PHARMACY_CONFIG = {
   name: "LifeCare Pharmacy",
   tagline: "Medicine delivered to your door in 30 minutes",
-  address: "Eldoret CBD, Kenya",
+  address: "Rongai, Kenya",
   phone: "0712345678",
   whatsapp: "254712345678",
   hours: "Open 8:00 AM – 9:00 PM · Mon–Sat",
