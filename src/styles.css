@@ -1,0 +1,128 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+
+
+/* ============================================================
+   MedRush design system
+   Brand: deep green primary, warm amber accent, white surfaces.
+   All colors live here as CSS vars; components use semantic tokens.
+   ============================================================ */
+
+@theme inline {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --shadow-card: 0 2px 10px -2px rgb(28 28 30 / 0.06), 0 6px 24px -10px rgb(28 28 30 / 0.08);
+  --shadow-lift: 0 8px 30px -6px rgb(26 122 74 / 0.18);
+}
+
+:root {
+  --background: oklch(1 0 0);                       /* #FFFFFF */
+  --foreground: oklch(0.20 0.005 285);              /* #1C1C1E */
+  --surface: oklch(0.975 0.003 247);                /* #F7F8FA soft section */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.20 0.005 285);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.20 0.005 285);
+
+  --primary: oklch(0.502 0.123 152);                /* #1A7A4A deep green */
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-soft: oklch(0.95 0.04 152);
+
+  --accent: oklch(0.78 0.155 70);                   /* #F5A623 warm amber */
+  --accent-foreground: oklch(0.20 0.005 285);
+  --accent-soft: oklch(0.96 0.06 80);
+
+  --secondary: oklch(0.96 0.005 247);
+  --secondary-foreground: oklch(0.20 0.005 285);
+  --muted: oklch(0.96 0.005 247);
+  --muted-foreground: oklch(0.50 0.01 270);
+
+  --destructive: oklch(0.60 0.22 27);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.92 0.005 270);
+  --input: oklch(0.92 0.005 270);
+  --ring: oklch(0.502 0.123 152);
+
+  --radius: 12px;
+}
+
+.dark {
+  --background: oklch(0.18 0.01 270);
+  --foreground: oklch(0.97 0 0);
+  --surface: oklch(0.22 0.01 270);
+  --card: oklch(0.22 0.01 270);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.22 0.01 270);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.65 0.13 152);
+  --primary-foreground: oklch(0.10 0 0);
+  --primary-soft: oklch(0.28 0.05 152);
+  --accent: oklch(0.80 0.16 75);
+  --accent-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.28 0.01 270);
+  --secondary-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.28 0.01 270);
+  --muted-foreground: oklch(0.72 0.01 270);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.65 0.13 152);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+}
+
+@layer utilities {
+  .card-lift {
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+}
