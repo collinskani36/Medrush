@@ -4,6 +4,7 @@ import {
   Lock, Phone, MessageCircle, Plus, LogOut, Package, ClipboardList,
   Pill, FileText, TrendingUp, Trash2, CheckCircle2, ChefHat, Bike,
   Home as HomeIcon, UserCircle2, Bike as BikeIcon, ArrowRight, Star,
+  Stethoscope, PackageSearch, Clock, XCircle, PhoneCall, Loader2, ImagePlus,
 } from "lucide-react";
 import {
   addProduct,
@@ -18,11 +19,25 @@ import {
   addRider,
   deleteRider,
   assignRider,
+  fetchAllDoctors,
+  addDoctor,
+  toggleDoctorAvailability,
+  deleteDoctor,
+  uploadDoctorPhoto,
+  fetchConsultations,
+  updateConsultationStatus,
+  addConsultationNotes,
+  fetchEquipmentRequests,
+  quoteEquipmentRequest,
+  updateEquipmentRequestStatus,
 } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { PHARMACY_CONFIG, CATEGORIES } from "@/config";
 import { formatKES, formatPhoneForWa } from "@/lib/format";
-import type { Order, OrderStatus, Prescription, PrescriptionStatus, Product, Rider } from "@/types";
+import type {
+  Order, OrderStatus, Prescription, PrescriptionStatus, Product, Rider,
+  Doctor, Consultation, ConsultationStatus, EquipmentRequest, EquipmentRequestStatus,
+} from "@/types";
 
 const STATUSES: OrderStatus[] = ["received", "preparing", "out_for_delivery", "delivered"];
 
@@ -100,7 +115,7 @@ function Login() {
   );
 }
 
-type Tab = "overview" | "orders" | "products" | "prescriptions" | "riders";
+type Tab = "overview" | "orders" | "products" | "prescriptions" | "riders" | "doctors" | "consultations" | "equipment";
 
 function Dashboard() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -108,13 +123,36 @@ function Dashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [equipmentRequests, setEquipmentRequests] = useState<EquipmentRequest[]>([]);
+
+  const loadDoctors = () => fetchAllDoctors().then(setDoctors);
+  const loadConsultations = () => fetchConsultations().then(setConsultations);
+  const loadEquipmentRequests = () => fetchEquipmentRequests().then(setEquipmentRequests);
 
   useEffect(() => {
     const unsub = subscribeOrders(setOrders);
     fetchProducts().then(setProducts);
     fetchPrescriptions().then(setPrescriptions);
     fetchRiders().then(setRiders);
-    return unsub;
+    loadDoctors();
+    loadConsultations();
+    loadEquipmentRequests();
+
+    // Doctors/consultations/equipment requests don't have a Realtime
+    // subscribe() in api.ts yet, so poll them the same way the customer-facing
+    // ConsultationStatus/EquipmentStatus pages do (every 8s) to keep new
+    // bookings and requests visible without a manual refresh.
+    const poll = setInterval(() => {
+      loadConsultations();
+      loadEquipmentRequests();
+    }, 8000);
+
+    return () => {
+      unsub();
+      clearInterval(poll);
+    };
   }, []);
 
   const handleLogout = async () => { await supabase?.auth.signOut(); };
@@ -130,6 +168,9 @@ function Dashboard() {
     ["products",      "Products",      Package],
     ["prescriptions", "Prescriptions", FileText],
     ["riders",        "Riders",        BikeIcon],
+    ["doctors",       "Doctors",       Stethoscope],
+    ["consultations", "Consultations", PhoneCall],
+    ["equipment",     "Equipment",     PackageSearch],
   ];
 
   return (
@@ -168,6 +209,8 @@ function Dashboard() {
             <Stat label="Pending orders" value={pending.length.toString()}      icon={<Pill className="h-5 w-5" />} />
             <Stat label="Revenue today"  value={formatKES(revenue)}             icon={<TrendingUp className="h-5 w-5" />} />
             <Stat label="Total products" value={products.length.toString()}     icon={<Package className="h-5 w-5" />} />
+            <Stat label="Consultations awaiting call" value={consultations.filter((c) => c.status === "paid" || c.status === "assigned").length.toString()} icon={<PhoneCall className="h-5 w-5" />} />
+            <Stat label="Equipment requests to quote" value={equipmentRequests.filter((r) => r.status === "pending").length.toString()} icon={<PackageSearch className="h-5 w-5" />} />
           </div>
         )}
 
@@ -201,6 +244,31 @@ function Dashboard() {
             riders={riders}
             onAdd={async (r) => { await addRider(r); setRiders(await fetchRiders()); }}
             onDelete={async (id) => { await deleteRider(id); setRiders(await fetchRiders()); }}
+          />
+        )}
+
+        {tab === "doctors" && (
+          <DoctorsPanel
+            doctors={doctors}
+            onAdd={async (d) => { await addDoctor(d); await loadDoctors(); }}
+            onToggle={async (id, v) => { await toggleDoctorAvailability(id, v); await loadDoctors(); }}
+            onDelete={async (id) => { await deleteDoctor(id); await loadDoctors(); }}
+          />
+        )}
+
+        {tab === "consultations" && (
+          <ConsultationsPanel
+            consultations={consultations}
+            onStatusChange={async (id, s) => { await updateConsultationStatus(id, s); await loadConsultations(); }}
+            onSaveNotes={async (id, notes) => { await addConsultationNotes(id, notes); await loadConsultations(); }}
+          />
+        )}
+
+        {tab === "equipment" && (
+          <EquipmentPanel
+            requests={equipmentRequests}
+            onQuote={async (id, price, notes) => { await quoteEquipmentRequest(id, price, notes); await loadEquipmentRequests(); }}
+            onStatusChange={async (id, s) => { await updateEquipmentRequestStatus(id, s); await loadEquipmentRequests(); }}
           />
         )}
       </main>
@@ -793,6 +861,459 @@ function RidersPanel({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Doctors Panel ────────────────────────────────────────────────────────────
+
+function DoctorsPanel({
+  doctors, onAdd, onToggle, onDelete,
+}: {
+  doctors: Doctor[];
+  onAdd: (d: Omit<Doctor, "id" | "created_at">) => void;
+  onToggle: (id: string, v: boolean) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [form, setForm] = useState<Omit<Doctor, "id" | "created_at">>({
+    name: "", specialty: "", bio: "", photo_url: "", consultation_fee: 0, is_available: true,
+  });
+
+  const resetForm = () => {
+    setForm({ name: "", specialty: "", bio: "", photo_url: "", consultation_fee: 0, is_available: true });
+    setPhotoError(null);
+  };
+
+  const handlePhotoSelect = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoError(null);
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadDoctorPhoto(file);
+      setForm((f) => ({ ...f, photo_url: url }));
+    } catch (e) {
+      console.error(e);
+      setPhotoError("Could not upload photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!form.name || !form.specialty || !form.consultation_fee) return;
+    setSaving(true);
+    await onAdd(form);
+    setSaving(false);
+    setShowAdd(false);
+    resetForm();
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    await onDelete(id);
+    setDeletingId(null);
+    setConfirmDeleteId(null);
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">{doctors.length} doctors</div>
+        <button onClick={() => setShowAdd(true)} className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground">
+          <Plus className="h-4 w-4" /> Add doctor
+        </button>
+      </div>
+
+      {doctors.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
+          No doctors yet. Add one so customers can book consultations.
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Doctor</th>
+                  <th className="px-4 py-3">Specialty</th>
+                  <th className="px-4 py-3">Fee</th>
+                  <th className="px-4 py-3">Available</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {doctors.map((d) => (
+                  <tr key={d.id} className="border-t border-border">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {d.photo_url ? (
+                          <img src={d.photo_url} alt={d.name} className="h-10 w-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="grid h-10 w-10 place-items-center rounded-full bg-primary-soft text-primary font-semibold text-sm">
+                            {d.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="font-medium">{d.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{d.specialty}</td>
+                    <td className="px-4 py-3">{formatKES(d.consultation_fee)}</td>
+                    <td className="px-4 py-3">
+                      <label className="inline-flex cursor-pointer items-center gap-2">
+                        <input type="checkbox" checked={d.is_available} onChange={(e) => onToggle(d.id, e.target.checked)} className="h-4 w-4 accent-[var(--color-primary)]" />
+                        <span className={d.is_available ? "text-primary" : "text-muted-foreground"}>{d.is_available ? "Available" : "Off"}</span>
+                      </label>
+                    </td>
+                    <td className="px-4 py-3">
+                      {confirmDeleteId === d.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Sure?</span>
+                          <button onClick={() => handleDelete(d.id)} disabled={deletingId === d.id} className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-60">
+                            {deletingId === d.id ? "…" : "Yes"}
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(null)} className="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground">No</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setConfirmDeleteId(d.id)} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:border-destructive hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {showAdd && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/50 p-4" onClick={() => { setShowAdd(false); resetForm(); }}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-2xl">
+            <div className="font-display text-xl font-semibold">Add doctor</div>
+            <div className="mt-4 grid gap-3">
+              <input placeholder="Full name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-11 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary" />
+              <input placeholder="Specialty (e.g. General Practitioner)" value={form.specialty} onChange={(e) => setForm({ ...form, specialty: e.target.value })} className="h-11 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary" />
+              <input type="number" placeholder="Consultation fee (KES)" value={form.consultation_fee || ""} onChange={(e) => setForm({ ...form, consultation_fee: Number(e.target.value) })} className="h-11 rounded-lg border border-border px-3 text-sm outline-none focus:border-primary" />
+
+              <div>
+                <div className="mb-1.5 text-sm font-medium">Photo (optional)</div>
+                <div className="flex items-center gap-3">
+                  {form.photo_url ? (
+                    <img src={form.photo_url} alt="Preview" className="h-14 w-14 rounded-full object-cover" />
+                  ) : (
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+                      <ImagePlus className="h-5 w-5" />
+                    </div>
+                  )}
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground hover:border-primary hover:text-primary">
+                    {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    {uploadingPhoto ? "Uploading…" : form.photo_url ? "Replace photo" : "Upload photo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={uploadingPhoto}
+                      onChange={(e) => handlePhotoSelect(e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
+                {photoError && <p className="mt-1.5 text-xs text-destructive">{photoError}</p>}
+              </div>
+
+              <textarea placeholder="Short bio (optional)" rows={3} value={form.bio ?? ""} onChange={(e) => setForm({ ...form, bio: e.target.value })} className="rounded-lg border border-border p-3 text-sm outline-none focus:border-primary" />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => { setShowAdd(false); resetForm(); }} className="rounded-full border border-border px-4 py-2 text-sm">Cancel</button>
+              <button
+                onClick={handleAdd}
+                disabled={!form.name || !form.specialty || !form.consultation_fee || saving || uploadingPhoto}
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Consultations Panel ──────────────────────────────────────────────────────
+
+const CONSULTATION_STATUS_META: Record<ConsultationStatus, { label: string; color: string; bg: string }> = {
+  awaiting_payment: { label: "Awaiting payment", color: "text-muted-foreground", bg: "bg-surface border-border" },
+  paid:              { label: "Paid — call needed", color: "text-blue-600",   bg: "bg-blue-50 border-blue-200" },
+  assigned:          { label: "Assigned",           color: "text-amber-600",  bg: "bg-amber-50 border-amber-200" },
+  in_progress:       { label: "Call in progress",   color: "text-violet-600", bg: "bg-violet-50 border-violet-200" },
+  completed:         { label: "Completed",          color: "text-green-600",  bg: "bg-green-50 border-green-200" },
+  cancelled:         { label: "Cancelled",          color: "text-destructive", bg: "bg-destructive/10 border-destructive/30" },
+};
+
+function ConsultationCard({
+  c, onStatusChange, onSaveNotes,
+}: {
+  c: Consultation;
+  onStatusChange: (id: string, s: ConsultationStatus) => Promise<void>;
+  onSaveNotes: (id: string, notes: string) => Promise<void>;
+}) {
+  const [notes, setNotes] = useState(c.notes_from_doctor ?? "");
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const meta = CONSULTATION_STATUS_META[c.status];
+
+  const advance = async (next: ConsultationStatus) => {
+    setUpdating(true);
+    await onStatusChange(c.id, next);
+    setUpdating(false);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+      <div className={`flex items-center gap-2 border-b px-5 py-2.5 text-xs font-semibold ${meta.bg} ${meta.color}`}>
+        <PhoneCall className="h-3.5 w-3.5" />
+        <span className="uppercase tracking-wide">{meta.label}</span>
+        <span className="ml-auto text-[10px] font-normal opacity-70">{new Date(c.created_at).toLocaleString()}</span>
+      </div>
+      <div className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">#{c.id.slice(-6).toUpperCase()}</div>
+            <div className="font-display text-lg font-semibold truncate">{c.customer_name}</div>
+            <div className="text-sm text-muted-foreground truncate">{c.customer_phone}</div>
+            {c.doctor && <div className="mt-1 text-xs text-muted-foreground">Doctor: {c.doctor.name} · {c.doctor.specialty}</div>}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="font-display text-lg font-semibold">{formatKES(c.fee)}</div>
+            <div className="text-xs text-muted-foreground">M-Pesa</div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg bg-surface p-3 text-sm text-foreground/90">{c.reason}</div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <a href={`tel:${c.customer_phone}`} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-primary-soft">
+            <Phone className="h-3.5 w-3.5" /> Call
+          </a>
+          <a
+            href={`https://wa.me/${formatPhoneForWa(c.customer_phone)}?text=${encodeURIComponent(`Hi ${c.customer_name}, this is ${PHARMACY_CONFIG.name} calling about your consultation.`)}`}
+            target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          </a>
+
+          {c.status === "paid" && (
+            <button onClick={() => advance("assigned")} disabled={updating} className="ml-auto rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+              {updating ? "…" : "Mark assigned"}
+            </button>
+          )}
+          {c.status === "assigned" && (
+            <button onClick={() => advance("in_progress")} disabled={updating} className="ml-auto rounded-full bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+              {updating ? "…" : "Mark call in progress"}
+            </button>
+          )}
+          {c.status === "in_progress" && (
+            <button onClick={() => advance("completed")} disabled={updating} className="ml-auto rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">
+              {updating ? "…" : "Mark completed"}
+            </button>
+          )}
+          {(c.status === "paid" || c.status === "assigned") && (
+            <button onClick={() => advance("cancelled")} disabled={updating} className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-destructive hover:text-destructive">
+              Cancel
+            </button>
+          )}
+        </div>
+
+        {(c.status === "in_progress" || c.status === "completed") && (
+          <div className="mt-4 rounded-xl border border-border bg-surface p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Doctor's notes</div>
+            <textarea
+              value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              placeholder="Summary of the call, advice given…"
+              className="w-full rounded-lg border border-border bg-card p-2.5 text-sm outline-none focus:border-primary"
+            />
+            <button
+              onClick={async () => { setSavingNotes(true); await onSaveNotes(c.id, notes); setSavingNotes(false); }}
+              disabled={savingNotes || notes === (c.notes_from_doctor ?? "")}
+              className="mt-2 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+            >
+              {savingNotes ? "Saving…" : "Save notes"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConsultationsPanel({
+  consultations, onStatusChange, onSaveNotes,
+}: {
+  consultations: Consultation[];
+  onStatusChange: (id: string, s: ConsultationStatus) => Promise<void>;
+  onSaveNotes: (id: string, notes: string) => Promise<void>;
+}) {
+  const [filter, setFilter] = useState<ConsultationStatus | "all">("all");
+  const list = consultations.filter((c) => filter === "all" || c.status === filter);
+  const ALL_STATUSES: ConsultationStatus[] = ["paid", "assigned", "in_progress", "completed", "cancelled"];
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button onClick={() => setFilter("all")} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filter === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+          All · {consultations.length}
+        </button>
+        {ALL_STATUSES.map((s) => (
+          <button key={s} onClick={() => setFilter(s)} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filter === s ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+            {CONSULTATION_STATUS_META[s].label} · {consultations.filter((c) => c.status === s).length}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">No consultations to show.</div>
+      ) : (
+        <div className="space-y-4">
+          {list.map((c) => (
+            <ConsultationCard key={c.id} c={c} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Equipment Requests Panel ─────────────────────────────────────────────────
+
+const EQUIPMENT_STATUS_META: Record<EquipmentRequestStatus, { label: string; color: string; bg: string }> = {
+  pending:   { label: "Needs quote", color: "text-blue-600",   bg: "bg-blue-50 border-blue-200" },
+  quoted:    { label: "Quoted",      color: "text-amber-600",  bg: "bg-amber-50 border-amber-200" },
+  accepted:  { label: "Accepted",    color: "text-violet-600", bg: "bg-violet-50 border-violet-200" },
+  fulfilled: { label: "Fulfilled",   color: "text-green-600",  bg: "bg-green-50 border-green-200" },
+  rejected:  { label: "Declined",    color: "text-muted-foreground", bg: "bg-surface border-border" },
+};
+
+function EquipmentCard({
+  r, onQuote, onStatusChange,
+}: {
+  r: EquipmentRequest;
+  onQuote: (id: string, price: number, notes: string | null) => Promise<void>;
+  onStatusChange: (id: string, s: EquipmentRequestStatus) => Promise<void>;
+}) {
+  const [price, setPrice] = useState(r.quoted_price?.toString() ?? "");
+  const [quoteNotes, setQuoteNotes] = useState(r.quote_notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const meta = EQUIPMENT_STATUS_META[r.status];
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)]">
+      <div className={`flex items-center gap-2 border-b px-5 py-2.5 text-xs font-semibold ${meta.bg} ${meta.color}`}>
+        <PackageSearch className="h-3.5 w-3.5" />
+        <span className="uppercase tracking-wide">{meta.label}</span>
+        <span className="ml-auto text-[10px] font-normal opacity-70">{new Date(r.created_at).toLocaleString()}</span>
+      </div>
+      <div className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">#{r.id.slice(-6).toUpperCase()}</div>
+            <div className="font-display text-lg font-semibold truncate">{r.customer_name}</div>
+            <div className="text-sm text-muted-foreground truncate">{r.customer_phone} · {r.delivery_address}</div>
+          </div>
+          <div className="text-right shrink-0 text-sm text-muted-foreground">Qty: {r.quantity}</div>
+        </div>
+
+        <div className="mt-3 rounded-lg bg-surface p-3 text-sm text-foreground/90">{r.item_description}</div>
+        {r.notes && <div className="mt-2 text-xs text-muted-foreground">Note: {r.notes}</div>}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <a href={`tel:${r.customer_phone}`} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-primary-soft">
+            <Phone className="h-3.5 w-3.5" /> Call
+          </a>
+        </div>
+
+        {(r.status === "pending" || r.status === "quoted") && (
+          <div className="mt-4 rounded-xl border border-border bg-surface p-3">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {r.status === "pending" ? "Send a quote" : "Update quote"}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="number" placeholder="Price (KES)" value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="h-10 w-40 rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+              />
+              <input
+                placeholder="Notes (lead time, terms…)" value={quoteNotes}
+                onChange={(e) => setQuoteNotes(e.target.value)}
+                className="h-10 flex-1 min-w-[160px] rounded-lg border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+              />
+              <button
+                onClick={async () => { setSaving(true); await onQuote(r.id, Number(price), quoteNotes || null); setSaving(false); }}
+                disabled={saving || !price || Number(price) <= 0}
+                className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                {saving ? "Sending…" : "Send quote"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {r.status === "accepted" && (
+          <button
+            onClick={async () => { setUpdating(true); await onStatusChange(r.id, "fulfilled"); setUpdating(false); }}
+            disabled={updating}
+            className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {updating ? "Updating…" : "Mark as delivered"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EquipmentPanel({
+  requests, onQuote, onStatusChange,
+}: {
+  requests: EquipmentRequest[];
+  onQuote: (id: string, price: number, notes: string | null) => Promise<void>;
+  onStatusChange: (id: string, s: EquipmentRequestStatus) => Promise<void>;
+}) {
+  const [filter, setFilter] = useState<EquipmentRequestStatus | "all">("all");
+  const list = requests.filter((r) => filter === "all" || r.status === filter);
+  const ALL_STATUSES: EquipmentRequestStatus[] = ["pending", "quoted", "accepted", "fulfilled", "rejected"];
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button onClick={() => setFilter("all")} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filter === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+          All · {requests.length}
+        </button>
+        {ALL_STATUSES.map((s) => (
+          <button key={s} onClick={() => setFilter(s)} className={`rounded-full border px-3 py-1.5 text-xs font-medium ${filter === s ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>
+            {EQUIPMENT_STATUS_META[s].label} · {requests.filter((r) => r.status === s).length}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">No equipment requests to show.</div>
+      ) : (
+        <div className="space-y-4">
+          {list.map((r) => (
+            <EquipmentCard key={r.id} r={r} onQuote={onQuote} onStatusChange={onStatusChange} />
+          ))}
         </div>
       )}
     </div>

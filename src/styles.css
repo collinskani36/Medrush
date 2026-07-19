@@ -124,3 +124,10 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 }
+
+/* Mobile font size reduction */
+@media (max-width: 767px) {
+  html {
+    font-size: 14px;
+  }
+}

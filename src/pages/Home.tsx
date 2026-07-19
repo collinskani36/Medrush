@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, MapPin, Clock, ShoppingBag, FileText } from "lucide-react";
+import { Search, MapPin, Clock, ShoppingBag, FileText, Stethoscope, PackageSearch, ArrowRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { CategoryPills } from "@/components/CategoryPills";
@@ -48,7 +48,8 @@ export default function Home() {
               <span className="text-primary"> in 30 minutes.</span>
             </h1>
             <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-              Order trusted medicines from {PHARMACY_CONFIG.name}. Fast delivery, real pharmacists, no hassle.
+              Your online pharmacy for medicines, health equipment, and real doctor consultations from{" "}
+              {PHARMACY_CONFIG.name}. Fast delivery, licensed pharmacists, no hassle.
             </p>
 
             <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-sm shadow-sm">
@@ -64,6 +65,12 @@ export default function Home() {
                 <ShoppingBag className="h-4 w-4" /> Order Now
               </Link>
               <Link
+                to="/consult"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:border-primary hover:text-primary"
+              >
+                <Stethoscope className="h-4 w-4" /> Consult a Doctor
+              </Link>
+              <Link
                 to="/prescription"
                 className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:border-primary hover:text-primary"
               >
@@ -71,6 +78,33 @@ export default function Home() {
               </Link>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Services — pharmacy, equipment, doctor consults as three equal pillars */}
+      <section className="mx-auto max-w-6xl px-4 py-10">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <ServiceCard
+            to="/products"
+            icon={<ShoppingBag className="h-6 w-6" />}
+            title="Shop medicines"
+            description="Browse trusted medicines, vitamins, and everyday health essentials, delivered to your door."
+            cta="Start shopping"
+          />
+          <ServiceCard
+            to="/consult"
+            icon={<Stethoscope className="h-6 w-6" />}
+            title="Consult a doctor"
+            description="Pay a small fee and a licensed doctor calls you back — no appointments, no waiting rooms."
+            cta="Talk to a doctor"
+          />
+          <ServiceCard
+            to="/equipment/request"
+            icon={<PackageSearch className="h-6 w-6" />}
+            title="Medical equipment"
+            description="Need a hospital bed, monitor, or mobility aid? Request a quote and we'll deliver it."
+            cta="Request a quote"
+          />
         </div>
       </section>
 
@@ -112,5 +146,31 @@ export default function Home() {
 
       <Footer />
     </div>
+  );
+}
+
+function ServiceCard({
+  to, icon, title, description, cta,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  cta: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="group flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary hover:shadow-[var(--shadow-lift)]"
+    >
+      <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary-soft text-primary">
+        {icon}
+      </div>
+      <div className="mt-4 font-display text-lg font-semibold">{title}</div>
+      <p className="mt-1 flex-1 text-sm text-muted-foreground">{description}</p>
+      <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+        {cta} <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }

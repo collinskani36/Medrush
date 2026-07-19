@@ -64,3 +64,57 @@ export interface Prescription {
   status: PrescriptionStatus;
   created_at: string;
 }
+
+export interface Doctor {
+  id: string;
+  name: string;
+  specialty: string;
+  bio?: string | null;
+  photo_url?: string | null;
+  consultation_fee: number;
+  is_available: boolean;
+  created_at: string;
+}
+
+export type ConsultationStatus =
+  | "awaiting_payment"
+  | "paid"
+  | "assigned"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export type PaymentStatus = "pending" | "paid" | "failed";
+
+export interface Consultation {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  doctor_id: string | null;
+  doctor?: Doctor | null; // populated when joined, e.g. fetchConsultation()
+  reason: string;
+  fee: number;
+  payment_method: "mpesa" | "cod";
+  payment_status: PaymentStatus;
+  status: ConsultationStatus;
+  scheduled_time?: string | null;
+  notes_from_doctor?: string | null;
+  created_at: string;
+}
+
+export type EquipmentRequestStatus = "pending" | "quoted" | "accepted" | "rejected" | "fulfilled";
+
+export interface EquipmentRequest {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  item_description: string;
+  quantity: number;
+  notes?: string | null;
+  status: EquipmentRequestStatus;
+  quoted_price?: number | null;
+  quote_notes?: string | null;
+  quoted_at?: string | null;
+  created_at: string;
+}

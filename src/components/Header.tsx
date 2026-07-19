@@ -17,6 +17,8 @@ export function Header() {
     { to: "/", label: "Home" },
     { to: "/products", label: "Shop" },
     { to: "/prescription", label: "Prescription" },
+    { to: "/consult", label: "Consult a Doctor" },
+    { to: "/equipment/request", label: "Equipment" },
   ];
 
   const handleLogoTap = () => {
@@ -49,17 +51,20 @@ export function Header() {
         </div>
 
         <nav className="hidden items-center gap-7 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={`text-sm font-medium transition-colors ${
-                pathname === l.to ? "text-primary" : "text-foreground/70 hover:text-foreground"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+          {links.map((l) => {
+            const active = l.to === "/" ? pathname === "/" : pathname.startsWith(l.to);
+            return (
+              <Link
+                key={l.to}
+                to={l.to}
+                className={`text-sm font-medium transition-colors ${
+                  active ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                }`}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-2">

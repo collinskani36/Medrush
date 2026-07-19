@@ -8,6 +8,11 @@ import Checkout from "@/pages/Checkout";
 import OrderTracking from "@/pages/OrderTracking";
 import Prescription from "@/pages/Prescription";
 import Admin from "@/pages/Admin";
+import Consultation from "@/pages/Consultation";
+import ConsultationBooking from "@/pages/ConsultationBooking";
+import ConsultationStatus from "@/pages/ConsultationStatus";
+import EquipmentRequest from "@/pages/EquipmentRequest";
+import EquipmentStatus from "@/pages/EquipmentStatus";
 
 export default function App() {
   return (
@@ -21,6 +26,11 @@ export default function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order/:id" element={<OrderTracking />} />
           <Route path="/prescription" element={<Prescription />} />
+          <Route path="/consult" element={<Consultation />} />
+          <Route path="/consult/status/:id" element={<ConsultationStatus />} />
+          <Route path="/consult/:doctorId" element={<ConsultationBooking />} />
+          <Route path="/equipment/request" element={<EquipmentRequest />} />
+          <Route path="/equipment/status/:id" element={<EquipmentStatus />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
