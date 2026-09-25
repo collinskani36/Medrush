@@ -39,43 +39,45 @@ export default function ProductDetail() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <section className="mx-auto max-w-6xl px-4 py-6">
-        <Link to="/products" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <section className="mx-auto max-w-6xl border-b border-[var(--color-hairline)] px-4 py-5">
+        <Link to="/products" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary">
           <ArrowLeft className="h-4 w-4" /> Back to products
         </Link>
       </section>
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-12 md:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl bg-surface">
+      <section className="mx-auto grid max-w-6xl gap-12 px-4 pb-14 md:grid-cols-2 md:gap-16">
+        <div className="overflow-hidden rounded-3xl bg-surface shadow-[var(--shadow-ambient)]">
           <img src={product.image_url} alt={product.name} className="aspect-square w-full object-cover" />
         </div>
-        <div className="flex flex-col">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">{product.category}</div>
-          <h1 className="mt-2 font-display text-3xl font-semibold md:text-4xl">{product.name}</h1>
-          <div className="mt-3 font-display text-2xl font-semibold text-primary">{formatKES(product.price)}</div>
-          <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+        <div className="flex flex-col md:py-2">
+          <div className="text-sm text-muted-foreground">{product.category}</div>
+          <h1 className="tracking-display mt-2 font-display text-3xl font-medium leading-tight md:text-[2.75rem]">
+            {product.name}
+          </h1>
+          <div className="mt-4 font-display text-3xl font-medium text-[var(--color-ink)]">
+            {formatKES(product.price)}
+          </div>
+          <p className="mt-5 max-w-md text-sm leading-relaxed text-muted-foreground">{product.description}</p>
 
           {product.requires_prescription && (
-            <div className="mt-5 flex items-start gap-3 rounded-xl border border-accent/40 bg-accent-soft p-4 text-sm">
-              <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
+            <div className="mt-6 inline-flex items-start gap-2.5 self-start rounded-lg border border-[var(--color-hairline)] px-3.5 py-2.5 text-sm">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
               <div>
-                <div className="font-semibold">Requires Prescription</div>
-                <div className="text-foreground/70">
-                  You'll be asked to upload a valid prescription at checkout.
-                </div>
+                <span className="font-semibold">Requires prescription</span>
+                <span className="text-muted-foreground"> — you'll upload it at checkout.</span>
               </div>
             </div>
           )}
 
-          <div className="mt-6 flex items-center gap-3">
-            <div className="inline-flex items-center rounded-full border border-border bg-card">
-              <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-11 w-11 place-items-center"><Minus className="h-4 w-4" /></button>
-              <div className="w-10 text-center text-sm font-semibold">{qty}</div>
-              <button onClick={() => setQty((q) => q + 1)} className="grid h-11 w-11 place-items-center"><Plus className="h-4 w-4" /></button>
+          <div className="mt-8 flex items-center gap-3 border-t border-[var(--color-hairline)] pt-8">
+            <div className="inline-flex items-center rounded-full border border-border">
+              <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-12 w-12 place-items-center text-muted-foreground transition-colors hover:text-foreground"><Minus className="h-4 w-4" /></button>
+              <div className="w-8 text-center text-sm font-semibold">{qty}</div>
+              <button onClick={() => setQty((q) => q + 1)} className="grid h-12 w-12 place-items-center text-muted-foreground transition-colors hover:text-foreground"><Plus className="h-4 w-4" /></button>
             </div>
             <button
               disabled={!product.in_stock}
               onClick={() => add(product, qty)}
-              className="flex-1 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+              className="flex-1 rounded-full bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
             >
               {product.in_stock ? `Add to cart · ${formatKES(product.price * qty)}` : "Out of Stock"}
             </button>
@@ -84,8 +86,10 @@ export default function ProductDetail() {
       </section>
 
       {rel.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 pb-12">
-          <h2 className="mb-4 font-display text-2xl font-semibold">You may also like</h2>
+        <section className="mx-auto max-w-6xl px-4 pb-14">
+          <h2 className="mb-6 border-b border-[var(--color-hairline)] pb-4 font-display text-2xl font-medium">
+            You may also like
+          </h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {rel.map((p) => (
               <ProductCard key={p.id} product={p} />

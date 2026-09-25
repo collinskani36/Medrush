@@ -1,68 +1,88 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Smartphone, Banknote } from "lucide-react";
+import { ArrowLeft, MapPin, Smartphone, Banknote } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
-import { PHARMACY_CONFIG } from "@/config";
 import { formatKES } from "@/lib/format";
 import { createOrder } from "@/lib/api";
 import { StkPushModal } from "@/components/StkPushModal";
+import LocationPicker from "@/components/LocationPicker";
 
-const FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface PinLocation {
+  lat: number;
+  lng: number;
+  address: string;
+  distanceKm: number; // client-side estimate — display only
+  fee: number;        // client-side estimate — display only
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function Checkout() {
   const { items, subtotal, clear } = useCart();
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [notes, setNotes] = useState("");
-  const [rxName, setRxName] = useState<string | null>(null);
-  const [method, setMethod] = useState<"mpesa" | "cod">("mpesa");
-  const [showStk, setShowStk] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+
+  const [name, setName]         = useState("");
+  const [phone, setPhone]       = useState("");
+  const [notes, setNotes]       = useState("");
+  const [method, setMethod]     = useState<"mpesa" | "cod">("mpesa");
+  const [showStk, setShowStk]           = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
-  const orderId = useRef<string | null>(null);
+
+  // Location state
+  const [pinLocation, setPinLocation] = useState<PinLocation | null>(null);
+  const [description, setDescription] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("medrush_checkout");
-      if (raw) {
-        const d = JSON.parse(raw);
-        setAddress(d.address ?? "");
-        setNotes(d.notes ?? "");
-        setRxName(d.rxName ?? null);
-      }
-    } catch {}
-  }, []);
+    if (items.length === 0 && !submitting) navigate("/cart");
+  }, [items, submitting, navigate]);
 
-  const total = subtotal + PHARMACY_CONFIG.deliveryFee;
-  const phoneOk = /^0\d{9}$/.test(phone);
+  // ── Derived totals ────────────────────────────────────────────────────────
 
-  // COD path — unchanged
-  const submitCodOrder = async () => {
+  const deliveryFee   = pinLocation?.fee ?? 0;
+  const safeSubtotal  = Number(subtotal) || 0;
+  const total         = safeSubtotal + deliveryFee;
+
+  const phoneOk         = /^0\d{9}$/.test(phone);
+  const hasValidDelivery = pinLocation !== null;
+  const canProceed      = !!name && phoneOk && hasValidDelivery && !submitting;
+
+  // ── Order submission ──────────────────────────────────────────────────────
+
+  const submitOrder = async () => {
+    if (!pinLocation) return;
     setSubmitting(true);
     try {
       const order = await createOrder({
-        customer_name: name,
-        customer_phone: phone,
-        delivery_address: address,
+        customer_name:    name,
+        customer_phone:   phone,
+        // Combine geocoded address with the optional landmark hint
+        delivery_address: description
+          ? `${pinLocation.address} (${description})`
+          : pinLocation.address,
         items: items.map((i) => ({
           product_id: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity,
+          name:       i.product.name,
+          price:      i.product.price,
+          quantity:   i.quantity,
         })),
-        prescription_url: rxName ? `uploads/${rxName}` : null,
-        subtotal,
-        delivery_fee: PHARMACY_CONFIG.deliveryFee,
+        prescription_url: null,
+        subtotal:         safeSubtotal,
+        delivery_fee:     deliveryFee,
         total,
-        payment_method: "cod",
+        payment_method:   method,
         special_instructions: notes || null,
+        // ── New location columns ──
+        delivery_lat:  pinLocation.lat,
+        delivery_lng:  pinLocation.lng,
+        distance_km:   pinLocation.distanceKm,
       });
+
       clear();
-      sessionStorage.removeItem("medrush_checkout");
       navigate(`/order/${order.id}`);
     } catch (e) {
       console.error(e);
@@ -72,85 +92,19 @@ export default function Checkout() {
     }
   };
 
-  const handleProceed = async () => {
-    if (!name || !phoneOk || !address) return;
-
-    if (method === "cod") {
-      submitCodOrder();
-      return;
-    }
-
-    // M-Pesa path
-    setSubmitting(true);
-    try {
-      // 1. Create order first
-      const order = await createOrder({
-        customer_name: name,
-        customer_phone: phone,
-        delivery_address: address,
-        items: items.map((i) => ({
-          product_id: i.product.id,
-          name: i.product.name,
-          price: i.product.price,
-          quantity: i.quantity,
-        })),
-        prescription_url: rxName ? `uploads/${rxName}` : null,
-        subtotal,
-        delivery_fee: PHARMACY_CONFIG.deliveryFee,
-        total,
-        payment_method: "mpesa",
-        special_instructions: notes || null,
-      });
-
-      orderId.current = order.id;
-
-      // 2. Fire STK push
-      const res = await fetch(`${FN_BASE}/mpesa-stk-push`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          phone,
-          amount: total,
-          reference_type: "order",
-          reference_id: order.id,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "STK push failed");
-
-      // 3. Hand off to modal — polling takes over
-      setCheckoutRequestId(data.checkoutRequestId);
+  const handleProceed = () => {
+    if (!canProceed) return;
+    if (method === "mpesa") {
+      // StkPushModal handles initiating the STK push itself using phone+amount,
+      // then calls onSuccess once the payment is confirmed. We just open it.
+      setCheckoutRequestId(null);
       setShowStk(true);
-    } catch (e) {
-      console.error(e);
-      alert("Could not initiate M-Pesa payment. Please try again.");
-    } finally {
-      setSubmitting(false);
+    } else {
+      submitOrder();
     }
   };
 
-  const handlePaymentSuccess = () => {
-    clear();
-    sessionStorage.removeItem("medrush_checkout");
-    navigate(`/order/${orderId.current}`);
-  };
-
-  const handlePaymentError = (msg: string) => {
-    setShowStk(false);
-    setCheckoutRequestId(null);
-    alert(msg);
-  };
-
-  const handleCancel = () => {
-    setShowStk(false);
-    setCheckoutRequestId(null);
-    // Order exists in DB but payment didn't complete —
-    // it stays in "received" until admin cleans up, or you can add a cancel endpoint
-  };
+  // ── Early-exit: empty cart ────────────────────────────────────────────────
 
   if (items.length === 0 && !submitting) {
     return (
@@ -163,79 +117,174 @@ export default function Checkout() {
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <section className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="font-display text-3xl font-semibold md:text-4xl">Checkout</h1>
 
-        <div className="mt-8 space-y-6">
-          <Card title="Contact">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full name">
-                <input value={name} onChange={(e) => setName(e.target.value)} className={input} placeholder="John Doe" />
-              </Field>
-              <Field label="Phone (07XXXXXXXX)">
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} className={input} placeholder="0712345678" />
-              </Field>
-            </div>
-            {phone && !phoneOk && (
-              <p className="mt-2 text-xs text-destructive">Use a Kenyan format: 07XXXXXXXX</p>
-            )}
-          </Card>
+      <section className="mx-auto max-w-lg px-4 py-8 space-y-6">
 
-          <Card title="Delivery">
-            <Field label="Address">
-              <input value={address} onChange={(e) => setAddress(e.target.value)} className={input} placeholder="Apartment, street, area" />
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+
+        <h1 className="font-display text-3xl font-semibold">Checkout</h1>
+
+        {/* Contact */}
+        <Card title="Contact">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Full name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={input}
+                placeholder="Jane Doe"
+              />
             </Field>
-          </Card>
-
-          <Card title="Payment">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <PaymentOption
-                active={method === "mpesa"}
-                onClick={() => setMethod("mpesa")}
-                icon={<Smartphone className="h-5 w-5" />}
-                title="M-Pesa"
-                subtitle="STK push to your phone"
+            <Field label="Phone (07XXXXXXXX)">
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className={input}
+                placeholder="0712345678"
               />
-              <PaymentOption
-                active={method === "cod"}
-                onClick={() => setMethod("cod")}
-                icon={<Banknote className="h-5 w-5" />}
-                title="Pay on delivery"
-                subtitle="Cash when courier arrives"
-              />
-            </div>
-          </Card>
+            </Field>
+          </div>
+          {phone && !phoneOk && (
+            <p className="mt-2 text-xs text-destructive">
+              Use a Kenyan format: 07XXXXXXXX
+            </p>
+          )}
+        </Card>
 
-          <Card title="Order summary">
-            <div className="space-y-2 text-sm">
-              {items.map((i) => (
-                <div key={i.product.id} className="flex justify-between text-muted-foreground">
-                  <span>{i.quantity} × {i.product.name}</span>
-                  <span>{formatKES(i.product.price * i.quantity)}</span>
+        {/* Delivery location */}
+        <Card title="Delivery Location">
+          {pinLocation ? (
+            // Confirmed location summary
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 rounded-xl border border-border bg-card p-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground">{pinLocation.address}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    ~{pinLocation.distanceKm.toFixed(1)} km · est. {formatKES(pinLocation.fee)} delivery
+                  </p>
                 </div>
-              ))}
-              <div className="my-2 border-t border-border" />
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatKES(subtotal)}</span></div>
-              <div className="flex justify-between"><span>Delivery</span><span>{formatKES(PHARMACY_CONFIG.deliveryFee)}</span></div>
-              <div className="mt-2 flex justify-between text-base font-semibold"><span>Total</span><span>{formatKES(total)}</span></div>
-            </div>
-          </Card>
+              </div>
 
-          <button
-            onClick={handleProceed}
-            disabled={!name || !phoneOk || !address || submitting}
-            className="w-full rounded-full bg-accent px-6 py-4 text-sm font-semibold text-accent-foreground transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
-          >
-            {submitting
-              ? "Please wait…"
-              : method === "mpesa"
-              ? `Pay ${formatKES(total)} with M-Pesa`
-              : `Place order · ${formatKES(total)}`}
-          </button>
-        </div>
+              <Field label="Landmark hint (optional)">
+                <input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={input}
+                  placeholder="e.g. blue gate, near stage"
+                />
+              </Field>
+
+              <button
+                type="button"
+                onClick={() => setPinLocation(null)}
+                className="text-xs text-primary hover:opacity-75"
+              >
+                Change location
+              </button>
+            </div>
+          ) : (
+            // Map picker
+            <LocationPicker
+              onConfirm={(data) => {
+                if (data.fee === null) return; // out of range — LocationPicker shows its own message
+                setPinLocation({
+                  lat:        data.lat,
+                  lng:        data.lng,
+                  address:    data.address,
+                  distanceKm: data.distanceKm,
+                  fee:        data.fee,
+                });
+              }}
+            />
+          )}
+        </Card>
+
+        {/* Payment method */}
+        <Card title="Payment">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <PaymentOption
+              active={method === "mpesa"}
+              onClick={() => setMethod("mpesa")}
+              icon={<Smartphone className="h-5 w-5" />}
+              title="M-Pesa"
+              subtitle="STK push to your phone"
+            />
+            <PaymentOption
+              active={method === "cod"}
+              onClick={() => setMethod("cod")}
+              icon={<Banknote className="h-5 w-5" />}
+              title="Pay on delivery"
+              subtitle="Cash when rider arrives"
+            />
+          </div>
+        </Card>
+
+        {/* Special instructions */}
+        <Card title="Special Instructions">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Anything the pharmacy or rider should know…"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary resize-none"
+          />
+        </Card>
+
+        {/* Order summary */}
+        <Card title="Order Summary">
+          <div className="space-y-2 text-sm">
+            {items.map((i) => (
+              <div key={i.product.id} className="flex justify-between text-muted-foreground">
+                <span>{i.quantity} × {i.product.name}</span>
+                <span>{formatKES(i.product.price * i.quantity)}</span>
+              </div>
+            ))}
+            <div className="my-2 border-t border-border" />
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatKES(safeSubtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Delivery{pinLocation ? " (est.)" : ""}</span>
+              <span>{pinLocation ? formatKES(deliveryFee) : "—"}</span>
+            </div>
+            <div className="mt-2 flex justify-between text-base font-semibold">
+              <span>Total</span>
+              <span>{pinLocation ? formatKES(total) : "—"}</span>
+            </div>
+            {pinLocation && (
+              <p className="text-xs text-muted-foreground pt-1">
+                Delivery fee is an estimate — the final amount is confirmed before payment.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        {/* CTA */}
+        <button
+          onClick={handleProceed}
+          disabled={!canProceed}
+          className="w-full rounded-full bg-accent px-6 py-4 text-sm font-semibold text-accent-foreground transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+        >
+          {submitting
+            ? "Placing order…"
+            : !hasValidDelivery
+            ? "Set delivery location to continue"
+            : method === "mpesa"
+            ? `Pay ${formatKES(total)} with M-Pesa`
+            : `Place order · ${formatKES(total)}`}
+        </button>
       </section>
 
       <StkPushModal
@@ -244,9 +293,12 @@ export default function Checkout() {
         amount={total}
         submitting={submitting}
         checkoutRequestId={checkoutRequestId}
-        onSuccess={handlePaymentSuccess}
-        onCancel={handleCancel}
-        onError={handlePaymentError}
+        onSuccess={submitOrder}
+        onCancel={() => setShowStk(false)}
+        onError={(msg) => {
+          setShowStk(false);
+          alert(msg);
+        }}
       />
 
       <Footer />
@@ -254,7 +306,10 @@ export default function Checkout() {
   );
 }
 
-const input = "h-12 w-full rounded-lg border border-border bg-card px-4 text-sm outline-none focus:border-primary";
+// ─── Local sub-components ─────────────────────────────────────────────────────
+
+const input =
+  "h-12 w-full rounded-lg border border-border bg-card px-4 text-sm outline-none focus:border-primary";
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -274,7 +329,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function PaymentOption({ active, onClick, icon, title, subtitle }: {
+function PaymentOption({
+  active, onClick, icon, title, subtitle,
+}: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -285,12 +342,14 @@ function PaymentOption({ active, onClick, icon, title, subtitle }: {
     <button
       onClick={onClick}
       className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors ${
-        active ? "border-primary bg-primary-soft" : "border-border bg-card hover:border-primary"
+        active ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary"
       }`}
     >
-      <div className={`grid h-10 w-10 place-items-center rounded-full ${
-        active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
-      }`}>
+      <div
+        className={`grid h-10 w-10 place-items-center rounded-full ${
+          active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+        }`}
+      >
         {icon}
       </div>
       <div>

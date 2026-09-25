@@ -52,6 +52,11 @@ export interface Order {
   rider?: Rider | null;
   rating?: number | null;
   created_at: string;
+  // ── Location fields (added by migration.sql) ──────────────────────────────
+  // Null on orders placed before the location system was deployed.
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  distance_km?: number | null;
 }
 
 export type PrescriptionStatus = "pending" | "reviewed" | "fulfilled";
@@ -91,7 +96,7 @@ export interface Consultation {
   customer_name: string;
   customer_phone: string;
   doctor_id: string | null;
-  doctor?: Doctor | null; // populated when joined, e.g. fetchConsultation()
+  doctor?: Doctor | null;
   reason: string;
   fee: number;
   payment_method: "mpesa" | "cod";

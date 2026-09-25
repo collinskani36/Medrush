@@ -5,22 +5,18 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { formatKES } from "@/lib/format";
-import { PHARMACY_CONFIG } from "@/config";
 
 export default function Cart() {
   const { items, setQty, remove, subtotal, requiresPrescription } = useCart();
-  const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [rxName, setRxName] = useState<string | null>(null);
   const navigate = useNavigate();
-
-  const total = subtotal + (items.length ? PHARMACY_CONFIG.deliveryFee : 0);
 
   const handleCheckout = () => {
     if (items.length === 0) return;
     sessionStorage.setItem(
       "medrush_checkout",
-      JSON.stringify({ address, notes, rxName }),
+      JSON.stringify({ notes, rxName }),
     );
     navigate("/checkout");
   };
@@ -72,15 +68,6 @@ export default function Cart() {
 
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="mb-2 block text-sm font-medium">Delivery address</label>
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Apartment 4B, Kago Road, Eldoret"
-                    className="h-12 w-full rounded-lg border border-border bg-card px-4 text-sm outline-none focus:border-primary"
-                  />
-                </div>
-                <div>
                   <label className="mb-2 block text-sm font-medium">Special instructions (optional)</label>
                   <textarea
                     value={notes}
@@ -118,22 +105,19 @@ export default function Cart() {
               <div className="font-display text-lg font-semibold">Order summary</div>
               <div className="mt-4 space-y-2 text-sm">
                 <Row label="Subtotal" value={formatKES(subtotal)} />
-                <Row label="Delivery fee" value={formatKES(PHARMACY_CONFIG.deliveryFee)} />
+                <Row label="Delivery fee" value="Calculated at checkout" />
                 <div className="my-3 border-t border-border" />
-                <Row label="Total" value={formatKES(total)} bold />
+                <Row label="Total" value={formatKES(subtotal)} bold />
               </div>
               <button
                 onClick={handleCheckout}
-                disabled={!address || (requiresPrescription && !rxName)}
+                disabled={requiresPrescription && !rxName}
                 className="mt-5 w-full rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
               >
                 Proceed to checkout
               </button>
               {requiresPrescription && !rxName && (
                 <p className="mt-2 text-xs text-muted-foreground">Upload a prescription to continue.</p>
-              )}
-              {!address && (
-                <p className="mt-2 text-xs text-muted-foreground">Enter a delivery address to continue.</p>
               )}
             </aside>
           </div>

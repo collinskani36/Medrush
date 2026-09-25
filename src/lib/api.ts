@@ -34,8 +34,19 @@ export async function fetchProduct(id: string): Promise<Product | null> {
   return MOCK_PRODUCTS.find((p) => p.id === id) ?? null;
 }
 
+// ─── createOrder ─────────────────────────────────────────────────────────────
+// The three new location fields (delivery_lat, delivery_lng, distance_km) are
+// optional so the mock / offline path still compiles. When present they are
+// spread into the Supabase insert alongside the existing columns —
+// no extra wiring needed because the insert is a plain { ...input, status }.
+
 export async function createOrder(
-  input: Omit<Order, "id" | "created_at" | "status"> & { status?: OrderStatus },
+  input: Omit<Order, "id" | "created_at" | "status"> & {
+    status?: OrderStatus;
+    delivery_lat?: number | null;
+    delivery_lng?: number | null;
+    distance_km?: number | null;
+  },
 ): Promise<Order> {
   const status: OrderStatus = input.status ?? "received";
   if (supabaseEnabled && supabase) {
@@ -135,7 +146,7 @@ export function subscribeOrder(id: string, cb: (order: Order | null) => void) {
   return subscribeOrders((orders) => { cb(orders.find((o) => o.id === id) ?? null); });
 }
 
-// ─── Storage ────────────────────────────────────────────────────────────────
+// ─── Storage ─────────────────────────────────────────────────────────────────
 
 export async function uploadPrescriptionFile(file: File): Promise<string> {
   if (!supabase) throw new Error("Supabase not configured");
@@ -147,7 +158,6 @@ export async function uploadPrescriptionFile(file: File): Promise<string> {
   return data.publicUrl;
 }
 
-/** Admin: upload a doctor's headshot to the public "doctor-photos" bucket, returns the public URL to save on the doctor record. */
 export async function uploadDoctorPhoto(file: File): Promise<string> {
   if (!supabase) throw new Error("Supabase not configured");
   const ext = file.name.split(".").pop();
@@ -158,7 +168,7 @@ export async function uploadDoctorPhoto(file: File): Promise<string> {
   return data.publicUrl;
 }
 
-// ─── Prescriptions ──────────────────────────────────────────────────────────
+// ─── Prescriptions ────────────────────────────────────────────────────────────
 
 export async function createPrescription(input: { customer_phone: string; delivery_address: string; prescription_url: string }): Promise<Prescription> {
   if (supabaseEnabled && supabase) {
@@ -190,7 +200,7 @@ export async function updatePrescriptionStatus(id: string, status: Prescription[
   if (p) p.status = status;
 }
 
-// ─── Products (admin) ────────────────────────────────────────────────────────
+// ─── Products (admin) ─────────────────────────────────────────────────────────
 
 export async function toggleProductStock(id: string, in_stock: boolean) {
   if (supabaseEnabled && supabase) {
@@ -223,7 +233,7 @@ export async function deleteProduct(id: string): Promise<void> {
   if (idx !== -1) MOCK_PRODUCTS.splice(idx, 1);
 }
 
-// ─── Riders (admin) ──────────────────────────────────────────────────────────
+// ─── Riders (admin) ───────────────────────────────────────────────────────────
 
 export async function fetchRiders(): Promise<Rider[]> {
   if (supabaseEnabled && supabase) {
@@ -255,9 +265,7 @@ export async function deleteRider(id: string): Promise<void> {
   if (idx !== -1) mockRiders.splice(idx, 1);
 }
 
-// ─── Doctors ──────────────────────────────────────────────────────────────
-// Supabase-only for now — no mock fallback, since consultations only make
-// sense against a real backend. Requires Supabase to be configured.
+// ─── Doctors ──────────────────────────────────────────────────────────────────
 
 function requireSupabase() {
   if (!supabaseEnabled || !supabase) throw new Error("Supabase not configured");
@@ -271,7 +279,6 @@ export async function fetchDoctors(): Promise<Doctor[]> {
   return (data ?? []) as Doctor[];
 }
 
-/** Admin: fetch all doctors regardless of availability. */
 export async function fetchAllDoctors(): Promise<Doctor[]> {
   const db = requireSupabase();
   const { data, error } = await db.from("doctors").select("*").order("created_at", { ascending: false });
@@ -305,12 +312,8 @@ export async function deleteDoctor(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ─── Consultations ──────────────────────────────────────────────────────────
+// ─── Consultations ────────────────────────────────────────────────────────────
 
-/**
- * Creates a consultation booking. Called after the customer confirms the
- * M-Pesa STK push, same pattern as createOrder() — so it's created already paid.
- */
 export async function createConsultation(
   input: Omit<Consultation, "id" | "created_at" | "status" | "payment_status" | "doctor">,
 ): Promise<Consultation> {
@@ -328,7 +331,6 @@ export async function fetchConsultation(id: string): Promise<Consultation | null
   return (data as Consultation) ?? null;
 }
 
-/** Admin: list all consultations, most recent first. */
 export async function fetchConsultations(): Promise<Consultation[]> {
   const db = requireSupabase();
   const { data, error } = await db.from("consultations").select("*, doctor:doctors(*)").order("created_at", { ascending: false });
@@ -342,14 +344,13 @@ export async function updateConsultationStatus(id: string, status: ConsultationS
   if (error) throw error;
 }
 
-/** Admin: attach the doctor's summary/advice once a consultation wraps up. */
 export async function addConsultationNotes(id: string, notes_from_doctor: string): Promise<void> {
   const db = requireSupabase();
   const { error } = await db.from("consultations").update({ notes_from_doctor }).eq("id", id);
   if (error) throw error;
 }
 
-// ─── Equipment requests ─────────────────────────────────────────────────────
+// ─── Equipment requests ───────────────────────────────────────────────────────
 
 export async function createEquipmentRequest(
   input: Omit<EquipmentRequest, "id" | "created_at" | "status" | "quoted_price" | "quote_notes" | "quoted_at">,
@@ -368,7 +369,6 @@ export async function fetchEquipmentRequest(id: string): Promise<EquipmentReques
   return (data as EquipmentRequest) ?? null;
 }
 
-/** Admin: list all equipment requests, most recent first. */
 export async function fetchEquipmentRequests(): Promise<EquipmentRequest[]> {
   const db = requireSupabase();
   const { data, error } = await db.from("equipment_requests").select("*").order("created_at", { ascending: false });
@@ -376,7 +376,6 @@ export async function fetchEquipmentRequests(): Promise<EquipmentRequest[]> {
   return (data ?? []) as EquipmentRequest[];
 }
 
-/** Admin: price a request and move it to "quoted". */
 export async function quoteEquipmentRequest(id: string, quoted_price: number, quote_notes: string | null): Promise<void> {
   const db = requireSupabase();
   const patch = { status: "quoted" as EquipmentRequestStatus, quoted_price, quote_notes, quoted_at: new Date().toISOString() };
@@ -384,14 +383,12 @@ export async function quoteEquipmentRequest(id: string, quoted_price: number, qu
   if (error) throw error;
 }
 
-/** Customer: accept a quote (called after M-Pesa STK confirmation) or reject it. */
 export async function updateEquipmentRequestStatus(id: string, status: EquipmentRequestStatus): Promise<void> {
   const db = requireSupabase();
   const { error } = await db.from("equipment_requests").update({ status }).eq("id", id);
   if (error) throw error;
 }
 
-/** Admin: mark an accepted request as delivered/fulfilled. */
 export async function fulfillEquipmentRequest(id: string): Promise<void> {
   return updateEquipmentRequestStatus(id, "fulfilled");
 }
