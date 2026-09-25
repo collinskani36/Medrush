@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Smartphone, Banknote } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -8,6 +8,8 @@ import { PHARMACY_CONFIG } from "@/config";
 import { formatKES } from "@/lib/format";
 import { createOrder } from "@/lib/api";
 import { StkPushModal } from "@/components/StkPushModal";
+
+const FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
 export default function Checkout() {
   const { items, subtotal, clear } = useCart();
@@ -20,6 +22,8 @@ export default function Checkout() {
   const [method, setMethod] = useState<"mpesa" | "cod">("mpesa");
   const [showStk, setShowStk] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const orderId = useRef<string | null>(null);
 
   useEffect(() => {
     try {
@@ -36,7 +40,8 @@ export default function Checkout() {
   const total = subtotal + PHARMACY_CONFIG.deliveryFee;
   const phoneOk = /^0\d{9}$/.test(phone);
 
-  const submitOrder = async () => {
+  // COD path — unchanged
+  const submitCodOrder = async () => {
     setSubmitting(true);
     try {
       const order = await createOrder({
@@ -53,7 +58,7 @@ export default function Checkout() {
         subtotal,
         delivery_fee: PHARMACY_CONFIG.deliveryFee,
         total,
-        payment_method: method,
+        payment_method: "cod",
         special_instructions: notes || null,
       });
       clear();
@@ -67,13 +72,84 @@ export default function Checkout() {
     }
   };
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (!name || !phoneOk || !address) return;
-    if (method === "mpesa") {
-      setShowStk(true);
-    } else {
-      submitOrder();
+
+    if (method === "cod") {
+      submitCodOrder();
+      return;
     }
+
+    // M-Pesa path
+    setSubmitting(true);
+    try {
+      // 1. Create order first
+      const order = await createOrder({
+        customer_name: name,
+        customer_phone: phone,
+        delivery_address: address,
+        items: items.map((i) => ({
+          product_id: i.product.id,
+          name: i.product.name,
+          price: i.product.price,
+          quantity: i.quantity,
+        })),
+        prescription_url: rxName ? `uploads/${rxName}` : null,
+        subtotal,
+        delivery_fee: PHARMACY_CONFIG.deliveryFee,
+        total,
+        payment_method: "mpesa",
+        special_instructions: notes || null,
+      });
+
+      orderId.current = order.id;
+
+      // 2. Fire STK push
+      const res = await fetch(`${FN_BASE}/mpesa-stk-push`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          phone,
+          amount: total,
+          reference_type: "order",
+          reference_id: order.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "STK push failed");
+
+      // 3. Hand off to modal — polling takes over
+      setCheckoutRequestId(data.checkoutRequestId);
+      setShowStk(true);
+    } catch (e) {
+      console.error(e);
+      alert("Could not initiate M-Pesa payment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    clear();
+    sessionStorage.removeItem("medrush_checkout");
+    navigate(`/order/${orderId.current}`);
+  };
+
+  const handlePaymentError = (msg: string) => {
+    setShowStk(false);
+    setCheckoutRequestId(null);
+    alert(msg);
+  };
+
+  const handleCancel = () => {
+    setShowStk(false);
+    setCheckoutRequestId(null);
+    // Order exists in DB but payment didn't complete —
+    // it stays in "received" until admin cleans up, or you can add a cancel endpoint
   };
 
   if (items.length === 0 && !submitting) {
@@ -153,7 +229,11 @@ export default function Checkout() {
             disabled={!name || !phoneOk || !address || submitting}
             className="w-full rounded-full bg-accent px-6 py-4 text-sm font-semibold text-accent-foreground transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
           >
-            {submitting ? "Placing order…" : method === "mpesa" ? `Pay ${formatKES(total)} with M-Pesa` : `Place order · ${formatKES(total)}`}
+            {submitting
+              ? "Please wait…"
+              : method === "mpesa"
+              ? `Pay ${formatKES(total)} with M-Pesa`
+              : `Place order · ${formatKES(total)}`}
           </button>
         </div>
       </section>
@@ -163,8 +243,10 @@ export default function Checkout() {
         phone={phone}
         amount={total}
         submitting={submitting}
-        onConfirm={submitOrder}
-        onCancel={() => setShowStk(false)}
+        checkoutRequestId={checkoutRequestId}
+        onSuccess={handlePaymentSuccess}
+        onCancel={handleCancel}
+        onError={handlePaymentError}
       />
 
       <Footer />
@@ -192,7 +274,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function PaymentOption({ active, onClick, icon, title, subtitle }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; subtitle: string }) {
+function PaymentOption({ active, onClick, icon, title, subtitle }: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
   return (
     <button
       onClick={onClick}
@@ -200,7 +288,11 @@ function PaymentOption({ active, onClick, icon, title, subtitle }: { active: boo
         active ? "border-primary bg-primary-soft" : "border-border bg-card hover:border-primary"
       }`}
     >
-      <div className={`grid h-10 w-10 place-items-center rounded-full ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}>{icon}</div>
+      <div className={`grid h-10 w-10 place-items-center rounded-full ${
+        active ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"
+      }`}>
+        {icon}
+      </div>
       <div>
         <div className="text-sm font-semibold">{title}</div>
         <div className="text-xs text-muted-foreground">{subtitle}</div>

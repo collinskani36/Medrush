@@ -1,32 +1,73 @@
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Smartphone, Loader2, CheckCircle2 } from "lucide-react";
+import { Smartphone, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { formatKES } from "@/lib/format";
 
-/**
- * Shared M-Pesa "STK push" confirmation modal.
- * Used by Checkout, ConsultationBooking, and EquipmentStatus (quote acceptance).
- *
- * This mirrors the existing checkout flow exactly: it does NOT verify payment
- * server-side, it just asks the customer to confirm once they've entered their
- * M-Pesa PIN on their phone. `onConfirm` is where the caller actually creates/
- * updates the record. Swap this for real STK verification later without
- * touching any of the call sites.
- */
+const FN_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
 export function StkPushModal({
   open,
   phone,
   amount,
   submitting,
-  onConfirm,
+  checkoutRequestId,
+  onSuccess,
   onCancel,
+  onError,
 }: {
   open: boolean;
   phone: string;
   amount: number;
   submitting: boolean;
-  onConfirm: () => void;
+  checkoutRequestId: string | null;
+  onSuccess: () => void;
   onCancel: () => void;
+  onError: (msg: string) => void;
 }) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attemptsRef = useRef(0);
+
+  useEffect(() => {
+    if (!open || !checkoutRequestId) return;
+
+    attemptsRef.current = 0;
+
+    intervalRef.current = setInterval(async () => {
+      attemptsRef.current += 1;
+
+      try {
+        const res = await fetch(`${FN_BASE}/mpesa-query`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ checkoutRequestId }),
+        });
+        const data = await res.json();
+
+        if (data.status === "completed") {
+          clearInterval(intervalRef.current!);
+          onSuccess();
+        } else if (data.status === "cancelled") {
+          clearInterval(intervalRef.current!);
+          onError("Payment was cancelled. Please try again.");
+        } else if (attemptsRef.current >= 20) {
+          // ~60 seconds
+          clearInterval(intervalRef.current!);
+          onError("Payment timed out. Please try again.");
+        }
+      } catch {
+        clearInterval(intervalRef.current!);
+        onError("Could not verify payment. Check your connection.");
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalRef.current!);
+  }, [open, checkoutRequestId]);
+
+  const isPolling = !!checkoutRequestId;
+
   return (
     <AnimatePresence>
       {open && (
@@ -42,31 +83,68 @@ export function StkPushModal({
             exit={{ scale: 0.95, opacity: 0 }}
             className="w-full max-w-md rounded-2xl bg-card p-7 text-center shadow-2xl"
           >
-            {submitting ? (
+            {/* Icon */}
+            {submitting || isPolling ? (
               <Loader2 className="mx-auto h-10 w-10 animate-spin text-primary" />
             ) : (
               <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary-soft">
                 <Smartphone className="h-7 w-7 text-primary" />
               </div>
             )}
-            <h3 className="mt-4 font-display text-xl font-semibold">Check your phone</h3>
+
+            {/* Heading */}
+            <h3 className="mt-4 font-display text-xl font-semibold">
+              {submitting
+                ? "Sending prompt…"
+                : isPolling
+                ? "Waiting for payment…"
+                : "Check your phone"}
+            </h3>
+
+            {/* Body */}
             <p className="mt-2 text-sm text-muted-foreground">
-              We've sent an M-Pesa STK push to <span className="font-medium text-foreground">{phone}</span>.
-              Enter your PIN to pay <span className="font-medium text-foreground">{formatKES(amount)}</span>.
+              {isPolling ? (
+                <>
+                  Enter your M-Pesa PIN on{" "}
+                  <span className="font-medium text-foreground">{phone}</span> to
+                  pay{" "}
+                  <span className="font-medium text-foreground">
+                    {formatKES(amount)}
+                  </span>
+                  . This will confirm automatically.
+                </>
+              ) : (
+                <>
+                  We've sent an M-Pesa STK push to{" "}
+                  <span className="font-medium text-foreground">{phone}</span>.
+                  Enter your PIN to pay{" "}
+                  <span className="font-medium text-foreground">
+                    {formatKES(amount)}
+                  </span>
+                  .
+                </>
+              )}
             </p>
+
+            {/* Actions */}
             <div className="mt-6 flex flex-col gap-2">
-              <button
-                onClick={onConfirm}
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                I've completed payment
-              </button>
+              {!isPolling && !submitting && (
+                <p className="text-xs text-muted-foreground">
+                  Sending prompt to your phone…
+                </p>
+              )}
+
+              {isPolling && (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Checking payment status…
+                </div>
+              )}
+
               <button
                 onClick={onCancel}
-                className="text-xs text-muted-foreground hover:text-foreground"
                 disabled={submitting}
+                className="mt-2 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
               >
                 Cancel
               </button>
