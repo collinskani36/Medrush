@@ -36,6 +36,13 @@ export default function AdminDelivery() {
   const load = async () => {
     setLoading(true);
     setError(null);
+
+    if (!supabase) {
+      setError("Supabase is not configured — check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY env vars.");
+      setLoading(false);
+      return;
+    }
+
     const { data, error: dbErr } = await supabase
       .from("delivery_pricing")
       .select("id, road_distance_factor, tiers, notes")
@@ -97,6 +104,10 @@ export default function AdminDelivery() {
 
   const save = async () => {
     if (!pricing) return;
+    if (!supabase) {
+      setError("Supabase is not configured — check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY env vars.");
+      return;
+    }
     const validationErr = validate();
     if (validationErr) { setError(validationErr); setSaved(false); return; }
 
