@@ -32,14 +32,27 @@ export default function Products() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     let list = products
       .filter((p) => (cat ? p.category === cat : true))
       .filter((p) => p.price <= maxPrice)
       .filter((p) => (rxOnly ? p.requires_prescription : true))
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true));
-    if (sort === "price_asc") list = [...list].sort((a, b) => a.price - b.price);
-    if (sort === "price_desc") list = [...list].sort((a, b) => b.price - a.price);
-    return list;
+
+    if (sort === "price_asc") {
+      list = [...list].sort((a, b) => a.price - b.price);
+    }
+
+    if (sort === "price_desc") {
+      list = [...list].sort((a, b) => b.price - a.price);
+    }
+
+    // Always show products with images first, then products without images.
+    // The chosen sort order is preserved inside each group.
+    const withImages = list.filter((p) => Boolean(p.image_url));
+    const withoutImages = list.filter((p) => !p.image_url);
+
+    return [...withImages, ...withoutImages];
   }, [products, cat, sort, maxPrice, rxOnly, search]);
 
   const resetFilters = () => {
@@ -56,7 +69,10 @@ export default function Products() {
 
       {/* Hero banner with integrated search */}
       <section className="relative overflow-hidden bg-[var(--color-ink)]">
-        <div className="rx-texture absolute inset-0 opacity-50" style={{ backgroundColor: "var(--color-primary-deep)" }} />
+        <div
+          className="rx-texture absolute inset-0 opacity-50"
+          style={{ backgroundColor: "var(--color-primary-deep)" }}
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary-deep)] to-[var(--color-ink)] opacity-95" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_88%_0%,oklch(0.80_0.125_82/0.16),transparent)]" />
 
@@ -107,7 +123,9 @@ export default function Products() {
           {/* Filter bar */}
           <div className="mt-6 flex flex-col gap-5 rounded-2xl border border-[var(--color-hairline)] bg-card p-4 shadow-[var(--shadow-card)] md:flex-row md:items-center md:justify-between md:gap-8 md:px-6">
             <label className="flex items-center gap-3 text-sm">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Sort</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Sort
+              </span>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as typeof sort)}
@@ -162,7 +180,9 @@ export default function Products() {
               <div className="grid h-14 w-14 place-items-center rounded-full bg-primary-soft text-primary">
                 <Search className="h-6 w-6" />
               </div>
-              <div className="tracking-display font-display text-xl font-medium">No products match these filters</div>
+              <div className="tracking-display font-display text-xl font-medium">
+                No products match these filters
+              </div>
               <p className="max-w-xs text-sm text-muted-foreground">
                 Try a different search, raise the price limit, or clear your filters.
               </p>
