@@ -6,7 +6,8 @@
 
 /* ============================================================
    Velpure Limited design system
-   Brand: deep magenta primary, champagne gold accent, warm ivory surfaces.
+   Brand: pharmacy blue primary, champagne gold accent, cool ivory surfaces.
+   Primary blue sampled from the supplied pharmacy reference image.
    All colors live here as CSS vars; components use semantic tokens.
    ============================================================ */
 
@@ -45,7 +46,7 @@
   --color-ring: var(--ring);
 
   --shadow-card: 0 2px 10px -2px rgb(28 28 30 / 0.06), 0 6px 24px -10px rgb(28 28 30 / 0.08);
-  --shadow-lift: 0 8px 30px -6px rgb(139 27 140 / 0.25);
+  --shadow-lift: 0 8px 30px -6px rgb(40 81 146 / 0.25);
 
   /* Premium-tier additions — additive only, existing tokens above are untouched */
   --color-ink: var(--ink);
@@ -58,23 +59,24 @@
 :root {
   --background: oklch(1 0 0);                       /* #FFFFFF */
   --foreground: oklch(0.20 0.005 285);              /* #1C1C1E */
-  --surface: oklch(0.977 0.006 330);                /* warm blush-ivory soft section */
+  --surface: oklch(0.982 0.004 240);                /* cool ivory */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.20 0.005 285);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.20 0.005 285);
 
-  --primary: oklch(0.46 0.19 328);                  /* deep magenta (from fabric swatch) */
-  --primary-foreground: oklch(0.985 0 0);
-  --primary-soft: oklch(0.96 0.03 328);
+  /* Primary blue — sampled from the supplied pharmacy reference image (~#285192) */
+  --primary: #285192;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #EAF0F9;
 
   --accent: oklch(0.80 0.125 82);                   /* champagne gold */
-  --accent-foreground: oklch(0.18 0.03 325);
+  --accent-foreground: oklch(0.18 0.03 240);
   --accent-soft: oklch(0.96 0.04 85);
 
-  --secondary: oklch(0.965 0.008 330);
+  --secondary: oklch(0.965 0.008 240);
   --secondary-foreground: oklch(0.20 0.005 285);
-  --muted: oklch(0.965 0.008 330);
+  --muted: oklch(0.965 0.008 240);
   --muted-foreground: oklch(0.50 0.01 270);
 
   --destructive: oklch(0.60 0.22 27);
@@ -82,10 +84,10 @@
 
   --border: oklch(0.92 0.005 270);
   --input: oklch(0.92 0.005 270);
-  --ring: oklch(0.46 0.19 328);
+  --ring: #285192;
 
-  --ink: oklch(0.15 0.03 325);                      /* plum-black */
-  --primary-deep: oklch(0.30 0.12 328);             /* deep aubergine for hero/panels */
+  --ink: oklch(0.15 0.03 240);                      /* blue-black */
+  --primary-deep: #173B73;                           /* deep pharmacy blue */
   --hairline: oklch(0.90 0.006 270);                /* quiet divider, one notch softer than --border */
 
   --radius: 12px;
@@ -99,43 +101,53 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.22 0.01 270);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.68 0.17 328);
-  --primary-foreground: oklch(0.10 0 0);
-  --primary-soft: oklch(0.28 0.05 328);
+
+  --primary: #5F83BF;
+  --primary-foreground: #FFFFFF;
+  --primary-soft: #1F3558;
+
   --accent: oklch(0.82 0.12 82);
   --accent-foreground: oklch(0.15 0 0);
+
   --secondary: oklch(0.28 0.01 270);
   --secondary-foreground: oklch(0.97 0 0);
   --muted: oklch(0.28 0.01 270);
   --muted-foreground: oklch(0.72 0.01 270);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.17 328);
+  --ring: #5F83BF;
 
   --ink: oklch(0.97 0 0);
-  --primary-deep: oklch(0.50 0.15 328);
+  --primary-deep: #285192;
   --hairline: oklch(1 0 0 / 10%);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
+
   html, body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
-  h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer utilities {
   .card-lift {
     transition: transform 200ms ease, box-shadow 200ms ease;
   }
+
   .card-lift:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lift);
   }
+
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 
@@ -144,6 +156,7 @@
     background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.10) 1.5px, transparent 0);
     background-size: 22px 22px;
   }
+
   .tracking-display { letter-spacing: -0.025em; }
 }
 
