@@ -1,5 +1,5 @@
 export const PHARMACY_CONFIG = {
-  name: "Velpro Pharmacy",
+  name: "Velpure Pharmacy",
   tagline: "Medicine delivered to your door in 30 minutes",
   address: "Eldoret, Kenya",
   phone: "0712345678",

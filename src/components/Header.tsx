@@ -43,14 +43,14 @@ export function Header() {
         >
           <img
             src="/logo-v.png"
-            alt="Velpro"
+            alt="Velpure"
             width={36}
             height={36}
             draggable={false}
             className="h-9 w-9 rounded-lg object-cover shadow-sm ring-1 ring-black/5"
           />
           <div className="leading-none">
-            <div className="font-display text-lg font-semibold">Velpro Limited</div>
+            <div className="font-display text-lg font-semibold">Velpure Limited</div>
             <div className="text-[11px] text-muted-foreground">{PHARMACY_CONFIG.name}</div>
           </div>
         </div>
