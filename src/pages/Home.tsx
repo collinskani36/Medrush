@@ -32,7 +32,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary-deep)] to-[var(--color-ink)] opacity-95" />
 
-        <div className="relative mx-auto max-w-5xl px-4 py-12 md:py-16">
+        <div className="relative mx-auto max-w-5xl px-4 pt-12 pb-4 md:pt-16 md:pb-5">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -97,7 +97,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-ink)] to-[var(--color-primary-deep)] opacity-95" />
 
-        <div className="relative mx-auto max-w-5xl px-4 py-12 md:py-16">
+        <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-0 md:pb-16 md:pt-1">
           <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <h2 className="tracking-display font-display text-2xl font-medium text-white md:text-3xl">
               Shop by category

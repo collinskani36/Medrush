@@ -50,18 +50,32 @@ export default function Consultation() {
             you back. No waiting room, no travel.
           </p>
 
-          {/* trust chips */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          {/* trust chips — single line, always */}
+          <div className="mt-4 flex flex-nowrap items-center gap-1.5 sm:gap-2">
             {[
-              { icon: ShieldCheck, label: "Licensed Kenyan doctors" },
-              { icon: Clock, label: "Callback within the hour" },
-              { icon: Star, label: "M-Pesa · secure payment" },
-            ].map(({ icon: Icon, label }) => (
+              {
+                icon: ShieldCheck,
+                label: "Licensed Kenyan doctors",
+                short: "Licensed",
+              },
+              {
+                icon: Clock,
+                label: "Callback within the hour",
+                short: "1-hr callback",
+              },
+              {
+                icon: Star,
+                label: "M-Pesa · secure payment",
+                short: "M-Pesa",
+              },
+            ].map(({ icon: Icon, label, short }) => (
               <span
                 key={label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-foreground/80"
+                className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-surface px-2.5 py-1.5 text-[10px] font-medium text-foreground/80 sm:flex-none sm:px-3 sm:text-xs"
               >
-                <Icon className="h-3.5 w-3.5 text-primary" /> {label}
+                <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="truncate sm:hidden">{short}</span>
+                <span className="hidden sm:inline">{label}</span>
               </span>
             ))}
           </div>
@@ -135,9 +149,6 @@ export default function Consultation() {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Stethoscope className="h-3.5 w-3.5 text-primary" /> Registered medical practitioners
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-primary" /> Callback, not a video call
             </span>
           </div>
         </div>
