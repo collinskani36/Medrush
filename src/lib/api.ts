@@ -35,10 +35,9 @@ export async function fetchProduct(id: string): Promise<Product | null> {
 }
 
 // ─── createOrder ─────────────────────────────────────────────────────────────
-// The three new location fields (delivery_lat, delivery_lng, distance_km) are
+// The three location fields (delivery_lat, delivery_lng, distance_km) are
 // optional so the mock / offline path still compiles. When present they are
-// spread into the Supabase insert alongside the existing columns —
-// no extra wiring needed because the insert is a plain { ...input, status }.
+// spread into the Supabase insert alongside the existing columns.
 
 export async function createOrder(
   input: Omit<Order, "id" | "created_at" | "status"> & {
@@ -170,13 +169,31 @@ export async function uploadDoctorPhoto(file: File): Promise<string> {
 
 // ─── Prescriptions ────────────────────────────────────────────────────────────
 
-export async function createPrescription(input: { customer_phone: string; delivery_address: string; prescription_url: string }): Promise<Prescription> {
+export async function createPrescription(input: {
+  customer_name: string;
+  customer_phone: string;
+  delivery_address: string;
+  prescription_url: string;
+  // Location fields — optional so prescriptions without a pin still work
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  distance_km?: number | null;
+}): Promise<Prescription> {
   if (supabaseEnabled && supabase) {
-    const { error } = await supabase.from("prescriptions").insert({ ...input, status: "pending" });
+    const { data, error } = await supabase
+      .from("prescriptions")
+      .insert({ ...input, status: "pending" })
+      .select()
+      .single();
     if (error) throw error;
-    return { ...input, status: "pending", id: crypto.randomUUID(), created_at: new Date().toISOString() } as Prescription;
+    return data as Prescription;
   }
-  const p: Prescription = { ...input, id: `rx_${Date.now().toString(36)}`, status: "pending", created_at: new Date().toISOString() };
+  const p: Prescription = {
+    ...input,
+    id: `rx_${Date.now().toString(36)}`,
+    status: "pending",
+    created_at: new Date().toISOString(),
+  };
   mockPrescriptions.unshift(p);
   return p;
 }
@@ -356,7 +373,13 @@ export async function createEquipmentRequest(
   input: Omit<EquipmentRequest, "id" | "created_at" | "status" | "quoted_price" | "quote_notes" | "quoted_at">,
 ): Promise<EquipmentRequest> {
   const db = requireSupabase();
-  const record = { ...input, status: "pending" as EquipmentRequestStatus, quoted_price: null, quote_notes: null, quoted_at: null };
+  const record = {
+    ...input,
+    status: "pending" as EquipmentRequestStatus,
+    quoted_price: null,
+    quote_notes: null,
+    quoted_at: null,
+  };
   const { data, error } = await db.from("equipment_requests").insert(record).select().single();
   if (error) throw error;
   return data as EquipmentRequest;

@@ -15,7 +15,7 @@ export default function Cart() {
   const handleCheckout = () => {
     if (items.length === 0) return;
     sessionStorage.setItem(
-      "medrush_checkout",
+      "Velpro Limited_checkout",
       JSON.stringify({ notes, rxName }),
     );
     navigate("/checkout");

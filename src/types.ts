@@ -68,6 +68,11 @@ export interface Prescription {
   prescription_url: string;
   status: PrescriptionStatus;
   created_at: string;
+  // ── Location fields (added by migration.sql) ──────────────────────────────
+  // Null on prescriptions submitted before the location system was deployed.
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  distance_km?: number | null;
 }
 
 export interface Doctor {
@@ -122,4 +127,9 @@ export interface EquipmentRequest {
   quote_notes?: string | null;
   quoted_at?: string | null;
   created_at: string;
+  // ── Location fields (added by migration.sql) ──────────────────────────────
+  // Null on requests submitted before the location system was deployed.
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  distance_km?: number | null;
 }

@@ -1,32 +1,30 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   MapPin, Clock, ShoppingBag, FileText, Stethoscope, ArrowRight,
-  Pill, Thermometer, Leaf, Bandage, Baby, Sparkles, HeartPulse,
+  Search, Syringe,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PHARMACY_CONFIG, CATEGORIES } from "@/config";
-
-// Maps each catalog category to a representative icon for its drawer.
-// Falls back to a plain pill icon for any category not listed here.
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  "Pain Relief": <Pill className="h-5 w-5" />,
-  "Cold & Flu": <Thermometer className="h-5 w-5" />,
-  "Vitamins": <Leaf className="h-5 w-5" />,
-  "First Aid": <Bandage className="h-5 w-5" />,
-  "Baby Care": <Baby className="h-5 w-5" />,
-  "Supplements": <Sparkles className="h-5 w-5" />,
-  "Personal Care": <HeartPulse className="h-5 w-5" />,
-  "Prescription": <FileText className="h-5 w-5" />,
-};
+import { getCategoryIcon } from "@/lib/categoryIcons";
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/products?search=${encodeURIComponent(q)}` : "/products");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      {/* Hero — compact, three equally-weighted primary actions, no filler copy */}
+      {/* Hero — compact, four equally-weighted primary actions, no filler copy */}
       <section className="relative overflow-hidden bg-[var(--color-ink)]">
         <div
           className="rx-texture absolute inset-0 opacity-50"
@@ -41,7 +39,7 @@ export default function Home() {
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <h1 className="tracking-display font-display text-3xl font-medium leading-[1.1] text-white md:text-5xl">
-              Medicine, delivered like it matters.
+              Pharmaceutical Services, delivered like it matters.
             </h1>
             <p className="mt-3 max-w-lg text-sm text-white/65 md:text-base">
               {PHARMACY_CONFIG.name} — trusted medicines, real doctor consults, same-day delivery.
@@ -54,17 +52,25 @@ export default function Home() {
               >
                 <ShoppingBag className="h-4 w-4" /> Order now
               </Link>
+
+              <Link
+                to="/prescription"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm transition-transform hover:scale-[1.02]"
+              >
+                <FileText className="h-4 w-4" /> Upload prescription
+              </Link>
               <Link
                 to="/consult"
                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm transition-transform hover:scale-[1.02]"
               >
                 <Stethoscope className="h-4 w-4" /> Consult a doctor
               </Link>
+
               <Link
-                to="/prescription"
+                to="/services"
                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-[var(--color-ink)] shadow-sm transition-transform hover:scale-[1.02]"
               >
-                <FileText className="h-4 w-4" /> Upload prescription
+                <Syringe className="h-4 w-4" /> Home & clinical services
               </Link>
             </div>
 
@@ -83,34 +89,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Shop by category — glass drawers replace the featured-products grid */}
-      <section className="mx-auto max-w-5xl px-4 py-10 md:py-14">
-        <div className="mb-5 flex items-end justify-between">
-          <h2 className="font-display text-xl font-medium md:text-2xl">Shop by category</h2>
-          <Link
-            to="/products"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-[var(--color-primary-deep)]"
-          >
-            Browse all <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+      {/* Shop by category — same premium look as the hero (texture, gradient, frosted tiles, gold accents) */}
+      <section className="relative overflow-hidden bg-[var(--color-ink)]">
+        <div
+          className="rx-texture absolute inset-0 opacity-50"
+          style={{ backgroundColor: "var(--color-primary-deep)" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-ink)] to-[var(--color-primary-deep)] opacity-95" />
 
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-soft via-accent-soft/50 to-primary-soft p-3 md:p-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {CATEGORIES.map((category) => (
+        <div className="relative mx-auto max-w-5xl px-4 py-12 md:py-16">
+          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <h2 className="tracking-display font-display text-2xl font-medium text-white md:text-3xl">
+              Shop by category
+            </h2>
+
+            <div className="flex items-center gap-3">
+              <form onSubmit={handleSearch} className="relative w-full md:w-72">
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search for a medicine…"
+                  className="h-11 w-full rounded-full border border-white/15 bg-white/10 pl-10 pr-4 text-sm text-white outline-none backdrop-blur-md transition-all placeholder:text-white/50 focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+              </form>
               <Link
-                key={category}
-                to={`/products?category=${encodeURIComponent(category)}`}
-                className="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-white/50 bg-white/40 p-4 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[var(--shadow-lift)]"
+                to="/products"
+                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
               >
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/80 text-primary shadow-sm">
-                  {CATEGORY_ICONS[category] ?? <Pill className="h-5 w-5" />}
-                </div>
-                <div className="font-display text-sm font-medium leading-tight text-foreground md:text-base">
-                  {category}
-                </div>
+                Browse all <ArrowRight className="h-4 w-4" />
               </Link>
-            ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {CATEGORIES.map((category) => {
+              const Icon = getCategoryIcon(category);
+              return (
+                <Link
+                  key={category}
+                  to={`/products?category=${encodeURIComponent(category)}`}
+                  className="group flex flex-col items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-white/[0.12] hover:shadow-[var(--shadow-gold)]"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-accent transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-sm font-medium text-white">{category}</span>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>

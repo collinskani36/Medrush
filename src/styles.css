@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ============================================================
-   MedRush design system
-   Brand: deep green primary, warm amber accent, white surfaces.
+   Velpro Limited design system
+   Brand: deep magenta primary, champagne gold accent, warm ivory surfaces.
    All colors live here as CSS vars; components use semantic tokens.
    ============================================================ */
 
@@ -45,36 +45,36 @@
   --color-ring: var(--ring);
 
   --shadow-card: 0 2px 10px -2px rgb(28 28 30 / 0.06), 0 6px 24px -10px rgb(28 28 30 / 0.08);
-  --shadow-lift: 0 8px 30px -6px rgb(26 122 74 / 0.18);
+  --shadow-lift: 0 8px 30px -6px rgb(139 27 140 / 0.25);
 
   /* Premium-tier additions — additive only, existing tokens above are untouched */
   --color-ink: var(--ink);
   --color-primary-deep: var(--primary-deep);
   --color-hairline: var(--hairline);
   --shadow-ambient: 0 1px 2px rgb(20 20 22 / 0.04), 0 20px 48px -20px rgb(20 20 22 / 0.14);
-  --shadow-gold: 0 10px 28px -10px rgb(180 130 30 / 0.35);
+  --shadow-gold: 0 10px 28px -10px rgb(200 155 60 / 0.40);
 }
 
 :root {
   --background: oklch(1 0 0);                       /* #FFFFFF */
   --foreground: oklch(0.20 0.005 285);              /* #1C1C1E */
-  --surface: oklch(0.975 0.003 247);                /* #F7F8FA soft section */
+  --surface: oklch(0.977 0.006 330);                /* warm blush-ivory soft section */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.20 0.005 285);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.20 0.005 285);
 
-  --primary: oklch(0.502 0.123 152);                /* #1A7A4A deep green */
+  --primary: oklch(0.46 0.19 328);                  /* deep magenta (from fabric swatch) */
   --primary-foreground: oklch(0.985 0 0);
-  --primary-soft: oklch(0.95 0.04 152);
+  --primary-soft: oklch(0.96 0.03 328);
 
-  --accent: oklch(0.78 0.155 70);                   /* #F5A623 warm amber */
-  --accent-foreground: oklch(0.20 0.005 285);
-  --accent-soft: oklch(0.96 0.06 80);
+  --accent: oklch(0.80 0.125 82);                   /* champagne gold */
+  --accent-foreground: oklch(0.18 0.03 325);
+  --accent-soft: oklch(0.96 0.04 85);
 
-  --secondary: oklch(0.96 0.005 247);
+  --secondary: oklch(0.965 0.008 330);
   --secondary-foreground: oklch(0.20 0.005 285);
-  --muted: oklch(0.96 0.005 247);
+  --muted: oklch(0.965 0.008 330);
   --muted-foreground: oklch(0.50 0.01 270);
 
   --destructive: oklch(0.60 0.22 27);
@@ -82,11 +82,11 @@
 
   --border: oklch(0.92 0.005 270);
   --input: oklch(0.92 0.005 270);
-  --ring: oklch(0.502 0.123 152);
+  --ring: oklch(0.46 0.19 328);
 
-  --ink: oklch(0.145 0.012 250);                    /* near-black, warmer/richer than --foreground */
-  --primary-deep: oklch(0.36 0.10 152);              /* bottle green for hover/pressed states */
-  --hairline: oklch(0.90 0.006 270);                 /* quiet divider, one notch softer than --border */
+  --ink: oklch(0.15 0.03 325);                      /* plum-black */
+  --primary-deep: oklch(0.30 0.12 328);             /* deep aubergine for hero/panels */
+  --hairline: oklch(0.90 0.006 270);                /* quiet divider, one notch softer than --border */
 
   --radius: 12px;
 }
@@ -99,10 +99,10 @@
   --card-foreground: oklch(0.97 0 0);
   --popover: oklch(0.22 0.01 270);
   --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.65 0.13 152);
+  --primary: oklch(0.68 0.17 328);
   --primary-foreground: oklch(0.10 0 0);
-  --primary-soft: oklch(0.28 0.05 152);
-  --accent: oklch(0.80 0.16 75);
+  --primary-soft: oklch(0.28 0.05 328);
+  --accent: oklch(0.82 0.12 82);
   --accent-foreground: oklch(0.15 0 0);
   --secondary: oklch(0.28 0.01 270);
   --secondary-foreground: oklch(0.97 0 0);
@@ -110,10 +110,10 @@
   --muted-foreground: oklch(0.72 0.01 270);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.13 152);
+  --ring: oklch(0.68 0.17 328);
 
   --ink: oklch(0.97 0 0);
-  --primary-deep: oklch(0.55 0.12 152);
+  --primary-deep: oklch(0.50 0.15 328);
   --hairline: oklch(1 0 0 / 10%);
 }
 
@@ -139,7 +139,7 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { scrollbar-width: none; }
 
-  /* Quiet capsule/tablet texture — used once, on the hero panel only */
+  /* Quiet capsule/tablet texture — used on the hero and category panels */
   .rx-texture {
     background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.10) 1.5px, transparent 0);
     background-size: 22px 22px;

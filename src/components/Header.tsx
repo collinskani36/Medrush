@@ -41,11 +41,16 @@ export function Header() {
           onClick={handleLogoTap}
           className="flex items-center gap-2 cursor-pointer select-none"
         >
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground font-display font-bold">
-            M
-          </div>
+          <img
+            src="/logo-v.png"
+            alt="Velpro"
+            width={36}
+            height={36}
+            draggable={false}
+            className="h-9 w-9 rounded-lg object-cover shadow-sm ring-1 ring-black/5"
+          />
           <div className="leading-none">
-            <div className="font-display text-lg font-semibold">MedRush</div>
+            <div className="font-display text-lg font-semibold">Velpro Limited</div>
             <div className="text-[11px] text-muted-foreground">{PHARMACY_CONFIG.name}</div>
           </div>
         </div>

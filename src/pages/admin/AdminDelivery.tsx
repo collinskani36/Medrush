@@ -1,18 +1,7 @@
-/**
- * AdminDelivery — rendered inside the existing "Riders" tab in Admin.tsx,
- * above the RidersPanel. Lets the admin configure:
- *   • road_distance_factor  (straight-line → on-road multiplier)
- *   • tiers                 (distance buckets → delivery fees)
- *   • notes                 (optional change log)
- *
- * Changes here are immediately visible to customers on the map-pin checkout
- * flow — the LocationPicker reads this same delivery_pricing row from Supabase.
- */
-
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { DeliveryTier } from "@/lib/geo";
+import { type DeliveryTier } from "@/lib/geo";
 
 interface DeliveryPricingRow {
   id: string;
@@ -30,8 +19,6 @@ export default function AdminDelivery() {
   const [saving, setSaving]             = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const [saved, setSaved]               = useState(false);
-
-  // ── Load ──────────────────────────────────────────────────────────────────
 
   const load = async () => {
     setLoading(true);
@@ -65,8 +52,6 @@ export default function AdminDelivery() {
 
   useEffect(() => { load(); }, []);
 
-  // ── Tier helpers ──────────────────────────────────────────────────────────
-
   const updateTier = (index: number, field: keyof DeliveryTier, value: number) => {
     setTiersInput((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
   };
@@ -79,8 +64,6 @@ export default function AdminDelivery() {
   const removeTier = (index: number) => {
     setTiersInput((prev) => prev.filter((_, i) => i !== index));
   };
-
-  // ── Validation ────────────────────────────────────────────────────────────
 
   const validate = (): string | null => {
     const factor = Number(factorInput);
@@ -99,8 +82,6 @@ export default function AdminDelivery() {
       return "Each tier must have a unique distance value.";
     return null;
   };
-
-  // ── Save ──────────────────────────────────────────────────────────────────
 
   const save = async () => {
     if (!pricing) return;
@@ -135,10 +116,8 @@ export default function AdminDelivery() {
 
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
-    load(); // re-fetch to confirm round-trip
+    load();
   };
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -158,18 +137,14 @@ export default function AdminDelivery() {
 
   return (
     <div className="space-y-6">
-
-      {/* Section header */}
       <div>
         <h2 className="font-display text-lg font-semibold">Delivery Pricing</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          
+          Tune how straight-line distance becomes a delivery fee.
         </p>
       </div>
 
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[var(--shadow-card)] space-y-5">
-
-        {/* Road distance factor */}
         <div>
           <label className="mb-1 block text-sm font-medium">
             Road Distance Factor
@@ -189,7 +164,6 @@ export default function AdminDelivery() {
           />
         </div>
 
-        {/* Distance tiers */}
         <div>
           <label className="mb-1 block text-sm font-medium">Distance Tiers</label>
           <p className="mb-3 text-xs text-muted-foreground">
@@ -239,7 +213,6 @@ export default function AdminDelivery() {
           </button>
         </div>
 
-        {/* Notes */}
         <div>
           <label className="mb-1 block text-sm font-medium">
             Notes <span className="font-normal text-muted-foreground">(optional)</span>
@@ -253,11 +226,9 @@ export default function AdminDelivery() {
           />
         </div>
 
-        {/* Feedback */}
         {error  && <p className="text-sm text-destructive">{error}</p>}
         {saved  && <p className="text-sm text-primary">Saved successfully.</p>}
 
-        {/* Save */}
         <button
           type="button"
           onClick={save}

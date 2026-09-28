@@ -13,6 +13,7 @@ import ConsultationBooking from "@/pages/ConsultationBooking";
 import ConsultationStatus from "@/pages/ConsultationStatus";
 import EquipmentRequest from "@/pages/EquipmentRequest";
 import EquipmentStatus from "@/pages/EquipmentStatus";
+import Services from "@/pages/Services";
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/consult/:doctorId" element={<ConsultationBooking />} />
           <Route path="/equipment/request" element={<EquipmentRequest />} />
           <Route path="/equipment/status/:id" element={<EquipmentStatus />} />
+          <Route path="/services" element={<Services />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
