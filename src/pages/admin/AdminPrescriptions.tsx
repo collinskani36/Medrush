@@ -125,6 +125,7 @@ function CreateOrderModal({
   onCreated: () => void | Promise<void>;
 }) {
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState(rx.customer_phone ?? "");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [feeInput, setFeeInput] = useState("");
@@ -178,7 +179,8 @@ function CreateOrderModal({
     );
   };
 
-  const canSave = name.trim().length > 0 && cart.length > 0 && !saving;
+  const phoneValid = phone.replace(/\D/g, "").length >= 9;
+  const canSave = name.trim().length > 0 && phoneValid && cart.length > 0 && !saving;
 
   const submit = async () => {
     if (!canSave) return;
@@ -194,7 +196,7 @@ function CreateOrderModal({
 
       const { error: dbErr } = await supabase!.from("orders").insert({
         customer_name: name.trim(),
-        customer_phone: rx.customer_phone,
+        customer_phone: phone.trim(),
         delivery_address: rx.delivery_address,
         delivery_lat: rx.delivery_lat ?? null,
         delivery_lng: rx.delivery_lng ?? null,
@@ -262,6 +264,23 @@ function CreateOrderModal({
                 placeholder="e.g. Jane Wanjiku"
                 className={FIELD}
               />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Customer phone number
+              </label>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="e.g. 0712345678"
+                className={FIELD}
+              />
+              {phone.trim().length > 0 && !phoneValid && (
+                <div className="mt-1 text-[11px] text-destructive">Enter a valid phone number.</div>
+              )}
             </div>
 
             <div className="rounded-2xl border border-[var(--color-hairline)] bg-surface/60 p-3.5 text-xs text-muted-foreground">

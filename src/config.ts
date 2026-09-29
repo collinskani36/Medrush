@@ -3,7 +3,7 @@ export const PHARMACY_CONFIG = {
   tagline: "Medicine delivered to your door in 30 minutes",
   address: "Eldoret, Kenya",
   phone: "0712345678",
-  whatsapp: "254728446813S",
+  whatsapp: "254728446813",
   hours: "Open 8:00 AM – 9:00 PM · Mon–Sat",
  
   primaryColor: "#1A7A4A",
@@ -11,12 +11,16 @@ export const PHARMACY_CONFIG = {
 };
 
 export const CATEGORIES = [
-  "Pain Relief",
-  "Cold & Flu",
-  "Vitamins",
-  "First Aid",
-  "Baby Care",
-  "Supplements",
+  "Pain and Fever",
+  "Cold, Flu and Allergy",
+  "Skin",
+  "Antibiotics",
+  "Stomach and Digestion",
+  "Diabetes and High Blood Pressure",
+  "Vitamins and Supplements",
+  "Women's Health",
+  "Baby and Mum",
   "Personal Care",
-  "Prescription",
+  "Sexual Wellness",
+  "Medical Devices",
 ];

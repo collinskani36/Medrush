@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, X, RotateCcw } from "lucide-react";
+import { Search, X, RotateCcw, FileText } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
@@ -25,7 +25,7 @@ export default function Products() {
     fetchProducts().then(setProducts).catch(console.error);
   }, []);
 
-  // Picks up ?search=... when arriving from the Home search bar (or a shared link).
+  // Picks up ?search=... when arriving from a shared link.
   useEffect(() => {
     const q = searchParams.get("search");
     if (q !== null) setSearch(q);
@@ -95,25 +95,35 @@ export default function Products() {
               {filtered.length} {filtered.length === 1 ? "item" : "items"} · add anything to cart in one tap
             </p>
 
-            <div className="relative mt-7 max-w-lg">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search for a medicine…"
-                className="h-12 w-full rounded-full border border-white/15 bg-white/10 pl-11 pr-11 text-sm text-white outline-none backdrop-blur-md transition-all placeholder:text-white/50 focus:border-accent focus:ring-4 focus:ring-accent/15"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 transition-colors hover:text-white"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            {/* Search + prescription upload */}
+            <div className="mt-7 flex max-w-2xl flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search for a medicine…"
+                  className="h-12 w-full rounded-full border border-white/15 bg-white/10 pl-11 pr-11 text-sm text-white outline-none backdrop-blur-md transition-all placeholder:text-white/50 focus:border-accent focus:ring-4 focus:ring-accent/15"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 transition-colors hover:text-white"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <Link
+                to="/prescription"
+                className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[var(--color-ink)] shadow-sm transition-transform hover:scale-[1.02]"
+              >
+                <FileText className="h-4 w-4" /> Upload prescription
+              </Link>
             </div>
           </motion.div>
         </div>

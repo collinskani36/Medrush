@@ -46,7 +46,7 @@ const SERVICES: ServiceDef[] = [
     title: "Family planning",
     description: "Confidential counselling and contraceptive services from qualified practitioners.",
     icon: HeartHandshake,
-    image: "/services/family-planning.jpg",
+    image: "/services/family-planning.jpeg",
     mode: "form",
   },
   {
@@ -54,7 +54,7 @@ const SERVICES: ServiceDef[] = [
     title: "Other practitioner services",
     description: "Physiotherapy, maternal care, or another specialist service — tell us what you need.",
     icon: Users,
-    image: "/services/other.jpg",
+    image: "/services/other.jpeg",
     mode: "form",
   },
 ];

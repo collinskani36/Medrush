@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Search, X, Upload, AlertTriangle,
-  CheckCircle2, Loader2, FileText,
+  CheckCircle2, Loader2, FileText, ChevronDown, ImageOff,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { CATEGORIES } from "@/config";
@@ -26,6 +26,7 @@ export function ProductsPanel({
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [form, setForm] = useState<Omit<Product, "id" | "created_at">>({
@@ -114,51 +115,48 @@ export function ProductsPanel({
             : "No products match your filters."}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-          {filtered.map((p) => (
-            <motion.div
-              layout
-              key={p.id}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-hairline)] bg-card shadow-[var(--shadow-ambient)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-lift)]"
-            >
-              {/* Square thumbnail */}
-              <div className="relative aspect-square overflow-hidden bg-surface">
-                <img
-                  src={p.image_url}
-                  alt={p.name}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                {p.requires_prescription && (
-                  <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-[var(--color-ink)]/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white backdrop-blur">
-                    <FileText className="h-2.5 w-2.5" /> Rx
-                  </span>
-                )}
-                {!p.in_stock && (
-                  <div className="absolute inset-0 grid place-items-center bg-[var(--color-ink)]/55 backdrop-blur-[2px]">
-                    <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-[var(--color-ink)]">
-                      Out of stock
-                    </span>
-                  </div>
-                )}
-              </div>
+        <div className="overflow-hidden rounded-2xl border border-[var(--color-hairline)] bg-card shadow-[var(--shadow-ambient)]">
+          {filtered.map((p) => {
+            const hasImage = !!p.image_url;
+            const open = expandedId === p.id;
+            return (
+              <div key={p.id} className="border-b border-[var(--color-hairline)] last:border-b-0">
+                <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                  {/* Name / category / price — click to reveal image */}
+                  <button
+                    type="button"
+                    onClick={() => hasImage && setExpandedId(open ? null : p.id)}
+                    disabled={!hasImage}
+                    aria-expanded={hasImage ? open : undefined}
+                    className={`flex min-w-0 flex-1 items-center gap-3 text-left ${hasImage ? "cursor-pointer" : "cursor-default"}`}
+                  >
+                    {hasImage ? (
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+                      />
+                    ) : (
+                      <ImageOff className="h-4 w-4 shrink-0 text-muted-foreground/40" aria-label="No image" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-display text-[13px] font-medium">{p.name}</span>
+                        {p.requires_prescription && (
+                          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--color-ink)]/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                            <FileText className="h-2.5 w-2.5" /> Rx
+                          </span>
+                        )}
+                      </div>
+                      <div className="truncate text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                        {p.category}
+                      </div>
+                    </div>
+                    <div className="shrink-0 font-display text-sm font-medium tracking-display text-[var(--color-ink)]">
+                      {formatKES(p.price)}
+                    </div>
+                  </button>
 
-              {/* Body */}
-              <div className="flex flex-1 flex-col p-3">
-                <div className="truncate text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
-                  {p.category}
-                </div>
-                <div className="mt-0.5 line-clamp-2 font-display text-[13px] font-medium leading-snug">
-                  {p.name}
-                </div>
-                <div className="mt-1.5 font-display text-sm font-medium tracking-display text-[var(--color-ink)]">
-                  {formatKES(p.price)}
-                </div>
-
-                <div className="mt-2.5 flex items-center justify-between gap-1.5 border-t border-[var(--color-hairline)] pt-2">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-[10px]">
+                  {/* Stock toggle */}
+                  <label className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-[11px]">
                     <input
                       type="checkbox"
                       checked={p.in_stock}
@@ -170,49 +168,75 @@ export function ProductsPanel({
                     </span>
                   </label>
 
-                  <AnimatePresence mode="wait" initial={false}>
-                    {confirmDeleteId === p.id ? (
-                      <motion.div
-                        key="confirm"
-                        initial={{ opacity: 0, x: 6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 6 }}
-                        transition={{ duration: 0.15 }}
-                        className="flex items-center gap-1"
-                      >
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          disabled={deletingId === p.id}
-                          className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold text-white disabled:opacity-60"
+                  {/* Delete */}
+                  <div className="shrink-0">
+                    <AnimatePresence mode="wait" initial={false}>
+                      {confirmDeleteId === p.id ? (
+                        <motion.div
+                          key="confirm"
+                          initial={{ opacity: 0, x: 6 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 6 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex items-center gap-1"
                         >
-                          {deletingId === p.id ? "…" : "Yes"}
-                        </button>
-                        <button
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="rounded-full border border-[var(--color-hairline)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={deletingId === p.id}
+                            className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-semibold text-white disabled:opacity-60"
+                          >
+                            {deletingId === p.id ? "…" : "Yes"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="rounded-full border border-[var(--color-hairline)] px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            No
+                          </button>
+                        </motion.div>
+                      ) : (
+                        <motion.button
+                          key="delete"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          onClick={() => setConfirmDeleteId(p.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-[var(--color-hairline)] p-1.5 text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
+                          title="Delete product"
                         >
-                          No
-                        </button>
-                      </motion.div>
-                    ) : (
-                      <motion.button
-                        key="delete"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        onClick={() => setConfirmDeleteId(p.id)}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--color-hairline)] p-1 text-muted-foreground transition-colors hover:border-destructive hover:text-destructive"
-                        title="Delete product"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
+
+                {/* Image, only when the row is opened */}
+                <AnimatePresence initial={false}>
+                  {open && hasImage && (
+                    <motion.div
+                      key="image"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="overflow-hidden bg-surface"
+                    >
+                      <div className="flex justify-center p-3">
+                        <img
+                          src={p.image_url}
+                          alt={p.name}
+                          loading="lazy"
+                          className="max-h-64 rounded-xl object-contain"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
-          ))}
+            );
+          })}
         </div>
       )}
 
