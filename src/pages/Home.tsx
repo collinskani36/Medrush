@@ -7,8 +7,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { PHARMACY_CONFIG, CATEGORIES } from "@/config";
-import { getCategoryIcon } from "@/lib/categoryIcons";
+import { PHARMACY_CONFIG } from "@/config";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -81,15 +80,12 @@ export default function Home() {
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" /> {PHARMACY_CONFIG.hours}
               </span>
-              <Link to="/equipment/request" className="text-white/70 hover:text-white">
-                Need equipment instead? →
-              </Link>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Shop by category — same premium look as the hero (texture, gradient, frosted tiles, gold accents) */}
+      {/* Visit pharmacy — replaces the category grid; all categories live on /products */}
       <section className="relative overflow-hidden bg-[var(--color-ink)]">
         <div
           className="rx-texture absolute inset-0 opacity-50"
@@ -98,12 +94,17 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-ink)] to-[var(--color-primary-deep)] opacity-95" />
 
         <div className="relative mx-auto max-w-5xl px-4 pb-12 pt-0 md:pb-16 md:pt-1">
-          <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <h2 className="tracking-display font-display text-2xl font-medium text-white md:text-3xl">
-              Shop by category
-            </h2>
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="tracking-display font-display text-2xl font-medium text-white md:text-3xl">
+                Visit pharmacy
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-white/60">
+                Browse every category, or search for a medicine directly.
+              </p>
+            </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
               <form onSubmit={handleSearch} className="relative w-full md:w-72">
                 <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
                 <input
@@ -116,29 +117,21 @@ export default function Home() {
               </form>
               <Link
                 to="/products"
-                className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
               >
-                Browse all <ArrowRight className="h-4 w-4" />
+                Visit pharmacy <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {CATEGORIES.map((category) => {
-              const Icon = getCategoryIcon(category);
-              return (
-                <Link
-                  key={category}
-                  to={`/products?category=${encodeURIComponent(category)}`}
-                  className="group flex flex-col items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-white/[0.12] hover:shadow-[var(--shadow-gold)]"
-                >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-accent transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
-                    <Icon className="h-5 w-5" />
-                  </span>
-                  <span className="text-sm font-medium text-white">{category}</span>
-                </Link>
-              );
-            })}
+          {/* Equipment — same button as Visit pharmacy */}
+          <div className="mt-4 flex md:justify-end">
+            <Link
+              to="/equipment/request"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
+            >
+              Need medical equipment? <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>

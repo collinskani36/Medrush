@@ -17,6 +17,7 @@ type ServiceDef = {
   title: string;
   description: string;
   icon: LucideIcon;
+  image: string;
   mode: "whatsapp" | "form";
   waMessage?: string;
 };
@@ -27,6 +28,7 @@ const SERVICES: ServiceDef[] = [
     title: "In-home nursing",
     description: "Wound care, injections, IV drips, post-surgery and elderly care from a nurse in our network.",
     icon: Syringe,
+    image: "/services/nursing.jfif",
     mode: "whatsapp",
     waMessage: "Hi, I'd like to request in-home nursing services.",
   },
@@ -35,6 +37,7 @@ const SERVICES: ServiceDef[] = [
     title: "In-house medical calls",
     description: "A doctor or clinician visits you at home for a consultation when a clinic visit isn't practical.",
     icon: Stethoscope,
+    image: "/services/medical-call.jpg",
     mode: "whatsapp",
     waMessage: "Hi, I'd like to request an in-house medical call (doctor home visit).",
   },
@@ -43,6 +46,7 @@ const SERVICES: ServiceDef[] = [
     title: "Family planning",
     description: "Confidential counselling and contraceptive services from qualified practitioners.",
     icon: HeartHandshake,
+    image: "/services/family-planning.jpg",
     mode: "form",
   },
   {
@@ -50,14 +54,15 @@ const SERVICES: ServiceDef[] = [
     title: "Other practitioner services",
     description: "Physiotherapy, maternal care, or another specialist service — tell us what you need.",
     icon: Users,
+    image: "/services/other.jpg",
     mode: "form",
   },
 ];
 
 const TRUST = [
-  { icon: ShieldCheck, label: "Qualified practitioners" },
-  { icon: Lock, label: "Confidential & discreet" },
-  { icon: HomeIcon, label: "Care at your doorstep" },
+  { icon: ShieldCheck, label: "Qualified practitioners", short: "Qualified" },
+  { icon: Lock, label: "Confidential & discreet", short: "Confidential" },
+  { icon: HomeIcon, label: "Care at your doorstep", short: "At your door" },
 ];
 
 const STEPS = [
@@ -240,20 +245,22 @@ export default function Services() {
               <span className="h-px w-8 bg-accent/70" /> Home &amp; clinical care
             </div>
             <h1 className="tracking-display mt-4 max-w-2xl font-display text-3xl font-medium leading-[1.08] text-white md:text-5xl">
-              Professional care, brought to your door.
+              Welcome. Let us bring the care to you.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/65 md:text-base">
               Nursing, home doctor visits, and specialist services — connected through our trusted network of
-              practitioners.
+              practitioners
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-2.5">
-              {TRUST.map(({ icon: Icon, label }) => (
+            <div className="mt-8 flex flex-nowrap items-center gap-1.5 sm:gap-2.5">
+              {TRUST.map(({ icon: Icon, label, short }) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] px-4 py-2 text-xs font-medium text-white/80 backdrop-blur-md"
+                  className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-white/15 bg-white/[0.07] px-2.5 py-2 text-[10px] font-medium text-white/80 backdrop-blur-md sm:flex-none sm:gap-2 sm:px-4 sm:text-xs"
                 >
-                  <Icon className="h-3.5 w-3.5 text-accent" /> {label}
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-accent" />
+                  <span className="truncate sm:hidden">{short}</span>
+                  <span className="hidden sm:inline">{label}</span>
                 </span>
               ))}
             </div>
@@ -278,46 +285,57 @@ export default function Services() {
               const Icon = service.icon;
               const isActive = active === service.type;
 
-              const cardClasses = `group relative flex h-full flex-col overflow-hidden rounded-3xl border bg-card p-6 text-left shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-lift)] md:p-7 ${
+              const cardClasses = `group relative block aspect-[16/11] h-full w-full overflow-hidden rounded-3xl border bg-[var(--color-primary-deep)] text-left shadow-[var(--shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-gold)] sm:aspect-[4/4.4] ${
                 isActive
-                  ? "border-primary ring-4 ring-primary/10"
-                  : "border-[var(--color-hairline)] hover:border-primary/30"
+                  ? "border-accent ring-4 ring-accent/20"
+                  : "border-[var(--color-hairline)] hover:border-accent/50"
               }`;
 
               const inner = (
                 <>
-                  {/* Soft gold glow on hover */}
-                  <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-accent/20 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100" />
-
-                  <div className="relative flex items-start justify-between">
-                    <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[var(--color-primary-deep)] text-accent shadow-[var(--shadow-lift)]">
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <span className="font-display text-3xl font-medium text-foreground/10 transition-colors group-hover:text-accent">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
+                  {/* fallback backdrop (visible if the image is missing) */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[var(--color-primary-deep)] to-[var(--color-ink)]">
+                    <Icon className="h-14 w-14 text-accent/30" strokeWidth={1} />
                   </div>
 
-                  <div className="relative mt-6">
-                    <div className="tracking-display font-display text-xl font-medium leading-tight text-foreground">
+                  <img
+                    src={service.image}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                    }}
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+
+                  {/* soft overlay for legible text */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ink)]/95 via-[var(--color-ink)]/45 to-transparent" />
+
+                  <div className="absolute inset-x-0 bottom-0 p-5 md:p-6">
+                    <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-accent ring-1 ring-accent/30 backdrop-blur-md transition-colors group-hover:bg-accent group-hover:text-accent-foreground">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="tracking-display font-display text-xl font-medium leading-tight text-white md:text-2xl">
                       {service.title}
                     </div>
-                    <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{service.description}</p>
-                  </div>
+                    <p className="mt-1.5 line-clamp-2 text-sm leading-snug text-white/70 sm:line-clamp-3">
+                      {service.description}
+                    </p>
 
-                  <div className="relative mt-6 flex items-center justify-between border-t border-[var(--color-hairline)] pt-4">
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                      {service.mode === "whatsapp" ? (
-                        <>
-                          <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
-                        </>
-                      ) : (
-                        <>Request this service</>
-                      )}
-                    </span>
-                    <span className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-hairline)] text-primary transition-all duration-300 group-hover:border-accent group-hover:bg-accent group-hover:text-accent-foreground">
-                      <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-                    </span>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-accent">
+                        {service.mode === "whatsapp" ? (
+                          <>
+                            <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
+                          </>
+                        ) : (
+                          <>Request this service</>
+                        )}
+                      </span>
+                      <span className="grid h-9 w-9 place-items-center rounded-full border border-white/20 text-white transition-all duration-300 group-hover:border-accent group-hover:bg-accent group-hover:text-accent-foreground">
+                        <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                      </span>
+                    </div>
                   </div>
                 </>
               );

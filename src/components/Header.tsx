@@ -18,6 +18,7 @@ export function Header() {
     { to: "/products", label: "Shop" },
     { to: "/prescription", label: "Prescription" },
     { to: "/consult", label: "Consult a Doctor" },
+    { to: "/services", label: "Home & Clinical Services" },
     { to: "/equipment/request", label: "Equipment" },
   ];
 
@@ -55,14 +56,14 @@ export function Header() {
           </div>
         </div>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-5 lg:flex xl:gap-7">
           {links.map((l) => {
             const active = l.to === "/" ? pathname === "/" : pathname.startsWith(l.to);
             return (
               <Link
                 key={l.to}
                 to={l.to}
-                className={`text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap text-sm font-medium transition-colors ${
                   active ? "text-primary" : "text-foreground/70 hover:text-foreground"
                 }`}
               >
@@ -91,7 +92,7 @@ export function Header() {
           </Link>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary lg:hidden"
             aria-label="Menu"
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -99,7 +100,7 @@ export function Header() {
         </div>
       </div>
       {open && (
-        <div className="border-t border-border bg-background md:hidden">
+        <div className="border-t border-border bg-background lg:hidden">
           <div className="mx-auto flex max-w-6xl flex-col px-4 py-2">
             {links.map((l) => (
               <Link

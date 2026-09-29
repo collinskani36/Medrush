@@ -4,9 +4,10 @@ import { motion } from "framer-motion";
 import { Search, X, RotateCcw } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { CategoryPills } from "@/components/CategoryPills";
 import { ProductCard } from "@/components/ProductCard";
 import { fetchProducts } from "@/lib/api";
+import { CATEGORIES } from "@/config";
+import { getCategoryIcon } from "@/lib/categoryIcons";
 import type { Product } from "@/types";
 
 const DEFAULT_MAX_PRICE = 5000;
@@ -39,21 +40,23 @@ export default function Products() {
       .filter((p) => (rxOnly ? p.requires_prescription : true))
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true));
 
-    if (sort === "price_asc") {
-      list = [...list].sort((a, b) => a.price - b.price);
-    }
+    if (sort === "price_asc") list = [...list].sort((a, b) => a.price - b.price);
+    if (sort === "price_desc") list = [...list].sort((a, b) => b.price - a.price);
 
-    if (sort === "price_desc") {
-      list = [...list].sort((a, b) => b.price - a.price);
-    }
-
-    // Always show products with images first, then products without images.
-    // The chosen sort order is preserved inside each group.
-    const withImages = list.filter((p) => Boolean(p.image_url));
-    const withoutImages = list.filter((p) => !p.image_url);
-
-    return [...withImages, ...withoutImages];
+    return list;
   }, [products, cat, sort, maxPrice, rxOnly, search]);
+
+  // Only a handpicked few products have photos. Show them as a "Featured" row
+  // when browsing everything; once the user filters/searches, show one plain list.
+  const isBrowsingAll = !cat && !search.trim() && !rxOnly && maxPrice === DEFAULT_MAX_PRICE;
+  const featured = useMemo(
+    () => (isBrowsingAll ? filtered.filter((p) => Boolean(p.image_url)) : []),
+    [filtered, isBrowsingAll],
+  );
+  const rest = useMemo(
+    () => (isBrowsingAll ? filtered.filter((p) => !p.image_url) : filtered),
+    [filtered, isBrowsingAll],
+  );
 
   const resetFilters = () => {
     setCat(null);
@@ -76,7 +79,7 @@ export default function Products() {
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary-deep)] to-[var(--color-ink)] opacity-95" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_88%_0%,oklch(0.80_0.125_82/0.16),transparent)]" />
 
-        <div className="relative mx-auto max-w-6xl px-4 py-12 md:py-16">
+        <div className="relative mx-auto max-w-6xl px-4 pt-12 pb-6 md:pt-16 md:pb-8">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -114,14 +117,44 @@ export default function Products() {
             </div>
           </motion.div>
         </div>
+
+        {/* Category cards — same frosted look as the old Home tiles */}
+        <div className="relative mx-auto max-w-6xl px-4 pb-10 md:pb-12">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {CATEGORIES.map((category) => {
+              const Icon = getCategoryIcon(category);
+              const active = cat === category;
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setCat(active ? null : category)}
+                  aria-pressed={active}
+                  className={`group flex items-center gap-3 rounded-2xl border p-3 text-left backdrop-blur-md transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-white/[0.12] hover:shadow-[var(--shadow-gold)] sm:flex-col sm:items-start sm:gap-4 sm:p-4 ${
+                    active
+                      ? "border-accent/60 bg-white/[0.14] shadow-[var(--shadow-gold)]"
+                      : "border-white/10 bg-white/[0.06]"
+                  }`}
+                >
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors group-hover:bg-accent group-hover:text-accent-foreground ${
+                      active ? "bg-accent text-accent-foreground" : "bg-accent/15 text-accent"
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="text-sm font-medium leading-tight text-white">{category}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       <section className="bg-surface">
         <div className="mx-auto max-w-6xl px-4 py-8 md:py-10">
-          <CategoryPills active={cat} onChange={setCat} />
-
           {/* Filter bar */}
-          <div className="mt-6 flex flex-col gap-5 rounded-2xl border border-[var(--color-hairline)] bg-card p-4 shadow-[var(--shadow-card)] md:flex-row md:items-center md:justify-between md:gap-8 md:px-6">
+          <div className="flex flex-col gap-5 rounded-2xl border border-[var(--color-hairline)] bg-card p-4 shadow-[var(--shadow-card)] md:flex-row md:items-center md:justify-between md:gap-8 md:px-6">
             <label className="flex items-center gap-3 text-sm">
               <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                 Sort
@@ -169,11 +202,33 @@ export default function Products() {
             </label>
           </div>
 
-          <div className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+          {featured.length > 0 && (
+            <div className="mt-7">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Featured
+              </div>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
+                {featured.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {rest.length > 0 && (
+            <div className="mt-7">
+              {featured.length > 0 && (
+                <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                  All medicines
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
+                {rest.map((p) => (
+                  <ProductCard key={p.id} product={p} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {filtered.length === 0 && (
             <div className="mt-7 flex flex-col items-center gap-3 rounded-3xl border border-dashed border-[var(--color-hairline)] bg-card px-6 py-14 text-center">
