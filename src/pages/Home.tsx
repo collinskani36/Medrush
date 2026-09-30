@@ -34,13 +34,14 @@ export default function Home() {
               {PHARMACY_CONFIG.name} — trusted medicines, real doctor consults, same-day delivery.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
               <Link
                 to="/products"
                 className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
               >
                 <Pill className="h-4 w-4" /> Visit pharmacy
               </Link>
+
 
               <Link
                 to="/consult"

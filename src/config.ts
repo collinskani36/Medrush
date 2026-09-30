@@ -2,9 +2,9 @@ export const PHARMACY_CONFIG = {
   name: "Velpure Pharmacy",
   tagline: "Medicine delivered to your door in 30 minutes",
   address: "Eldoret, Kenya",
-  phone: "0712345678",
-  whatsapp: "254728446813",
-  hours: "Open 8:00 AM – 9:00 PM · Mon–Sat",
+  phone: "0727566075",
+  whatsapp: "254727566075",
+  hours: "Open 8:00 AM – 6:00 PM · Mon–Sat",
  
   primaryColor: "#1A7A4A",
   accentColor: "#F5A623",
