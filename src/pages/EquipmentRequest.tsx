@@ -84,7 +84,7 @@ export default function EquipmentRequest() {
               Request a quotation
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/65 md:text-base">
-              Tell us what equipment you need — hospital beds, monitors, mobility aids, and more.
+              Tell us what equipment you need — medical devices, mobility aids, and more.
               We'll get back to you with pricing.
             </p>
           </motion.div>
@@ -156,7 +156,7 @@ export default function EquipmentRequest() {
               value={itemDescription}
               onChange={(e) => setItemDescription(e.target.value)}
               rows={4}
-              placeholder="e.g. Adjustable hospital bed with side rails, or a digital blood pressure monitor"
+              placeholder="e.g. a digital blood pressure monitor"
               className={textarea}
             />
             <div className="mt-5 max-w-[160px]">

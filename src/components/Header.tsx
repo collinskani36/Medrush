@@ -16,10 +16,10 @@ export function Header() {
   const links = [
     { to: "/", label: "Home" },
     { to: "/products", label: "Pharmacy" },
-    { to: "/prescription", label: "Prescription" },
+    
     { to: "/consult", label: "Consult a Doctor" },
     { to: "/services", label: "Home & Clinical Services" },
-    
+    { to: "/equipment/request", label: "Request Equipment" },
   ];
 
   const handleLogoTap = () => {

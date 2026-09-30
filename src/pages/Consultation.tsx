@@ -9,7 +9,6 @@ import type { LucideIcon } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { fetchDoctors } from "@/lib/api";
-import { formatKES } from "@/lib/format";
 import type { Doctor } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -123,6 +122,8 @@ export default function Consultation() {
           onBack={backToLanding}
           onShowAll={() => openCare("all")}
           isAll={care === "all"}
+          // the exact list the client is viewing, so the booking page can return here
+          listUrl={`/consult?care=${care}`}
         />
       )}
 
@@ -244,10 +245,10 @@ function Landing({ onPick }: { onPick: (key: string) => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// DoctorsView — shown after picking a care area
+// DoctorsView — shown after picking a care area (no prices on this page)
 // ---------------------------------------------------------------------------
 function DoctorsView({
-  title, loading, doctors, onBack, onShowAll, isAll,
+  title, loading, doctors, onBack, onShowAll, isAll, listUrl,
 }: {
   title: string;
   loading: boolean;
@@ -255,6 +256,7 @@ function DoctorsView({
   onBack: () => void;
   onShowAll: () => void;
   isAll: boolean;
+  listUrl: string;
 }) {
   return (
     <>
@@ -264,7 +266,7 @@ function DoctorsView({
           style={{ backgroundColor: "var(--color-primary-deep)" }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[var(--color-primary-deep)] to-[var(--color-ink)] opacity-95" />
-        <div className="relative mx-auto max-w-3xl px-4 py-8 md:py-10">
+        <div className="relative mx-auto max-w-5xl px-4 py-8 md:py-10">
           <button
             type="button"
             onClick={onBack}
@@ -279,20 +281,33 @@ function DoctorsView({
             Pick a doctor you feel comfortable with. They'll call you back
             personally.
           </p>
+
+          {/* Shared assurances — shown once here instead of on every card */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/60">
+            <span className="inline-flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 text-accent/80" /> Registered medical practitioners
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-accent/80" /> Personal callback within the hour
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-accent/80" /> Private & confidential
+            </span>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 py-6 md:py-8">
+      <section className="mx-auto max-w-5xl px-3 py-5 sm:px-4 md:py-10">
         {loading && (
-          <div className="space-y-3">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="h-24 animate-pulse rounded-2xl bg-muted" />
+          <div className="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="h-72 animate-pulse rounded-2xl bg-muted sm:h-96 sm:rounded-3xl" />
             ))}
           </div>
         )}
 
         {!loading && doctors.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
+          <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
             <Stethoscope className="mx-auto h-8 w-8 text-muted-foreground/40" />
             <div className="mt-3 font-display text-base font-semibold">
               Our doctors here are busy right now
@@ -314,21 +329,21 @@ function DoctorsView({
           </div>
         )}
 
-        <div className="space-y-3">
-          {doctors.map((d) => (
-            <DoctorRow key={d.id} doctor={d} />
-          ))}
-        </div>
+        {/* 2 columns on mobile, 2 on small tablets, 3 on desktop */}
+        {!loading && doctors.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+            {doctors.map((d, i) => (
+              <DoctorCard key={d.id} doctor={d} index={i} listUrl={listUrl} />
+            ))}
+          </div>
+        )}
       </section>
 
       {!loading && doctors.length > 0 && (
         <div className="border-t border-border bg-surface">
-          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-1.5 px-4 py-4 text-xs text-muted-foreground">
+          <div className="mx-auto flex max-w-5xl items-center justify-center px-4 py-4 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Not an emergency service
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Stethoscope className="h-3.5 w-3.5 text-primary" /> Registered medical practitioners
             </span>
           </div>
         </div>
@@ -338,49 +353,83 @@ function DoctorsView({
 }
 
 // ---------------------------------------------------------------------------
-// DoctorRow — unchanged from your original
+// DoctorCard — compact, welcoming profile card; no price (fee shows after selection)
 // ---------------------------------------------------------------------------
-function DoctorRow({ doctor: d }: { doctor: Doctor }) {
+function DoctorCard({
+  doctor: d, index, listUrl,
+}: {
+  doctor: Doctor;
+  index: number;
+  listUrl: string;
+}) {
+  const firstName = d.name.replace(/^dr\.?\s+/i, "").split(" ")[0];
+
   return (
-    <Link
-      to={`/consult/${d.id}`}
-      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-[var(--shadow-card)] transition-colors hover:border-primary/40"
+    <motion.div
+      className="h-full"
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.05 * index, ease: "easeOut" }}
     >
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl sm:h-20 sm:w-20">
-        {d.photo_url ? (
-          <img src={d.photo_url} alt={d.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-primary-soft">
-            <Stethoscope className="h-7 w-7 text-primary/60" strokeWidth={1.2} />
-          </div>
-        )}
-      </div>
+      <Link
+        to={`/consult/${d.id}`}
+        state={{ from: listUrl }}
+        className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--shadow-card)] transition-all hover:-translate-y-1 hover:border-accent/50 hover:shadow-[var(--shadow-gold)] sm:rounded-3xl"
+      >
+        {/* Photo */}
+        <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-primary-soft">
+          {d.photo_url ? (
+            <img
+              src={d.photo_url}
+              alt={d.name}
+              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--color-primary-deep)] to-[var(--color-ink)]">
+              <Stethoscope className="h-10 w-10 text-accent/40" strokeWidth={1} />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ink)]/50 via-transparent to-transparent" />
 
-      <div className="min-w-0 flex-1">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {d.specialty}
+          {/* Availability badge */}
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-foreground backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]">
+            <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+              <span className="relative inline-flex h-full w-full rounded-full bg-emerald-500" />
+            </span>
+            Available
+          </span>
         </div>
-        <div className="truncate font-display text-lg font-semibold leading-tight">
-          {d.name}
-        </div>
-        {d.bio && (
-          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground sm:line-clamp-2">
-            {d.bio}
-          </p>
-        )}
-      </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-2">
-        <div className="text-right">
-          <div className="font-display text-lg font-semibold leading-none text-primary">
-            {formatKES(d.consultation_fee)}
+        {/* Details */}
+        <div className="flex flex-1 flex-col p-3 sm:p-5">
+          <span className="w-fit max-w-full truncate rounded-full bg-primary-soft px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary sm:px-2.5 sm:py-1 sm:text-[11px]">
+            {d.specialty}
+          </span>
+
+          <h3 className="mt-2 font-display text-sm font-semibold leading-tight sm:mt-3 sm:text-xl">
+            {d.name}
+          </h3>
+
+          {d.bio && (
+            <p className="mt-1.5 line-clamp-3 text-[11px] leading-relaxed text-muted-foreground sm:mt-2 sm:line-clamp-4 sm:text-sm">
+              {d.bio}
+            </p>
+          )}
+
+          {/* Button pinned to the bottom so cards of different heights line up */}
+          <div className="mt-auto pt-3 sm:pt-4">
+            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2 text-xs font-semibold text-accent-foreground transition-transform group-hover:scale-[1.02] sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm">
+              <span className="truncate">
+                <span className="sm:hidden">Consult</span>
+                <span className="hidden sm:inline">Talk to Dr. {firstName}</span>
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 sm:h-4 sm:w-4" />
+            </span>
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground">per consultation</div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-accent-foreground transition-transform group-hover:scale-[1.03]">
-          Consult <ArrowRight className="h-3.5 w-3.5" />
-        </span>
-      </div>
-    </Link>
+      </Link>
+    </motion.div>
   );
 }
