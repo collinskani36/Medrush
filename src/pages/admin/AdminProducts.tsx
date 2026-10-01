@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Search, X, Upload, AlertTriangle,
-  CheckCircle2, Loader2, FileText, ChevronDown, ImageOff,
+  CheckCircle2, Loader2, FileText, ChevronDown, ImageOff, Pencil,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { CATEGORIES } from "@/config";
@@ -13,17 +13,20 @@ import { FIELD, BTN_PRIMARY, BTN_GHOST, EMPTY, chip, MiniStat } from "./shared";
 /* ─── Products Panel ─────────────────────────────────────────────────────────── */
 
 export function ProductsPanel({
-  products, onToggle, onAdd, onDelete, onBulkAdd,
+  products, onToggle, onAdd, onUpdate, onDelete, onBulkAdd,
 }: {
   products: Product[];
   onToggle: (id: string, v: boolean) => void;
   onAdd: (p: Omit<Product, "id" | "created_at">) => void;
+  onUpdate: (id: string, patch: Omit<Product, "id" | "created_at">) => Promise<void> | void;
   onDelete: (id: string) => void;
   onBulkAdd: (rows: Omit<Product, "id" | "created_at">[]) => Promise<void>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -45,14 +48,48 @@ export function ProductsPanel({
     setUploading(false);
   };
 
+  const closeModal = () => {
+    setShowAdd(false);
+    setEditingId(null);
+    resetForm();
+  };
+
+  const openEdit = (p: Product) => {
+    setForm({
+      name: p.name,
+      description: p.description ?? "",
+      price: p.price,
+      category: p.category,
+      image_url: p.image_url ?? "",
+      requires_prescription: p.requires_prescription,
+      in_stock: p.in_stock,
+    });
+    setEditingId(p.id);
+    setShowAdd(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editingId) await onUpdate(editingId, form);
+      else await onAdd(form);
+      closeModal();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filtered = products.filter((p) => {
     const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || p.category === categoryFilter;
+    const matchesCategory =
+      categoryFilter === "all" ||
+      (categoryFilter === "__no_image" ? !p.image_url : p.category === categoryFilter);
     return matchesSearch && matchesCategory;
   });
 
   const inStockCount = products.filter((p) => p.in_stock).length;
   const rxCount = products.filter((p) => p.requires_prescription).length;
+  const noImageCount = products.filter((p) => !p.image_url).length;
   const categoriesInUse = Array.from(new Set(products.map((p) => p.category)));
 
   return (
@@ -97,6 +134,11 @@ export function ProductsPanel({
           <button onClick={() => setCategoryFilter("all")} className={chip(categoryFilter === "all")}>
             All · {products.length}
           </button>
+          {noImageCount > 0 && (
+            <button onClick={() => setCategoryFilter("__no_image")} className={chip(categoryFilter === "__no_image")}>
+              No image · {noImageCount}
+            </button>
+          )}
           {categoriesInUse.map((c) => {
             const count = products.filter((p) => p.category === c).length;
             return (
@@ -167,6 +209,16 @@ export function ProductsPanel({
                       {p.in_stock ? "In" : "Out"}
                     </span>
                   </label>
+
+                  {/* Edit */}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(p)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--color-hairline)] p-1.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                    title={hasImage ? "Edit product" : "Edit product / add image"}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
 
                   {/* Delete */}
                   <div className="shrink-0">
@@ -243,7 +295,7 @@ export function ProductsPanel({
       {showAdd && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-ink)]/40 p-4 backdrop-blur-sm"
-          onClick={() => { setShowAdd(false); resetForm(); }}
+          onClick={closeModal}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.98, y: 8 }}
@@ -252,7 +304,7 @@ export function ProductsPanel({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-3xl border border-[var(--color-hairline)] bg-card p-6 shadow-[var(--shadow-ambient)]"
           >
-            <div className="font-display text-xl font-medium tracking-display">Add product</div>
+            <div className="font-display text-xl font-medium tracking-display">{editingId ? "Edit product" : "Add product"}</div>
             <div className="mt-5 grid gap-3">
               <input
                 placeholder="Name"
@@ -333,15 +385,15 @@ export function ProductsPanel({
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button onClick={() => { setShowAdd(false); resetForm(); }} className={BTN_GHOST}>
+              <button onClick={closeModal} className={BTN_GHOST}>
                 Cancel
               </button>
               <button
-                onClick={() => { onAdd(form); setShowAdd(false); resetForm(); }}
-                disabled={!form.name || !form.price || uploading}
+                onClick={handleSave}
+                disabled={!form.name || !form.price || uploading || saving}
                 className={BTN_PRIMARY}
               >
-                Save
+                {saving ? "Saving…" : editingId ? "Save changes" : "Save"}
               </button>
             </div>
           </motion.div>

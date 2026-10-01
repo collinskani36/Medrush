@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, ImagePlus, Loader2 } from "lucide-react";
+import { Plus, Trash2, ImagePlus, Loader2, Pencil } from "lucide-react";
 import { uploadDoctorPhoto } from "@/lib/api";
 import { formatKES } from "@/lib/format";
 import { DOCTOR_CATEGORIES } from "@/lib/specialties";
@@ -8,15 +8,17 @@ import type { Doctor } from "@/types";
 import { FIELD, BTN_PRIMARY, BTN_GHOST, CARD, EMPTY } from "./shared";
 
 export function DoctorsPanel({
-  doctors, onAdd, onToggle, onDelete,
+  doctors, onAdd, onUpdate, onToggle, onDelete,
 }: {
   doctors: Doctor[];
   onAdd: (d: Omit<Doctor, "id" | "created_at">) => void;
+  onUpdate: (id: string, patch: Omit<Doctor, "id" | "created_at">) => Promise<void> | void;
   onToggle: (id: string, v: boolean) => void;
   onDelete: (id: string) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -28,6 +30,26 @@ export function DoctorsPanel({
   const resetForm = () => {
     setForm({ name: "", specialty: "", bio: "", photo_url: "", consultation_fee: 0, is_available: true });
     setPhotoError(null);
+  };
+
+  const closeModal = () => {
+    setShowAdd(false);
+    setEditingId(null);
+    resetForm();
+  };
+
+  const openEdit = (doc: Doctor) => {
+    setForm({
+      name: doc.name,
+      specialty: doc.specialty,
+      bio: doc.bio ?? "",
+      photo_url: doc.photo_url ?? "",
+      consultation_fee: doc.consultation_fee,
+      is_available: doc.is_available,
+    });
+    setPhotoError(null);
+    setEditingId(doc.id);
+    setShowAdd(true);
   };
 
   const handlePhotoSelect = async (file: File | undefined) => {
@@ -48,10 +70,13 @@ export function DoctorsPanel({
   const handleAdd = async () => {
     if (!form.name || !form.specialty || !form.consultation_fee) return;
     setSaving(true);
-    await onAdd(form);
-    setSaving(false);
-    setShowAdd(false);
-    resetForm();
+    try {
+      if (editingId) await onUpdate(editingId, form);
+      else await onAdd(form);
+      closeModal();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -123,6 +148,13 @@ export function DoctorsPanel({
                       </label>
                     </td>
                     <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEdit(d)}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--color-hairline)] px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </button>
                       {confirmDeleteId === d.id ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Sure?</span>
@@ -148,6 +180,7 @@ export function DoctorsPanel({
                           <Trash2 className="h-3.5 w-3.5" /> Delete
                         </button>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -160,7 +193,7 @@ export function DoctorsPanel({
       {showAdd && (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-ink)]/40 p-4 backdrop-blur-sm"
-          onClick={() => { setShowAdd(false); resetForm(); }}
+          onClick={closeModal}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.98, y: 8 }}
@@ -169,7 +202,7 @@ export function DoctorsPanel({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg rounded-3xl border border-[var(--color-hairline)] bg-card p-6 shadow-[var(--shadow-ambient)]"
           >
-            <div className="font-display text-xl font-medium tracking-display">Add doctor</div>
+            <div className="font-display text-xl font-medium tracking-display">{editingId ? "Edit doctor" : "Add doctor"}</div>
             <div className="mt-5 grid gap-3">
               <input
                 placeholder="Full name"
@@ -234,7 +267,7 @@ export function DoctorsPanel({
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
-              <button onClick={() => { setShowAdd(false); resetForm(); }} className={BTN_GHOST}>
+              <button onClick={closeModal} className={BTN_GHOST}>
                 Cancel
               </button>
               <button
@@ -242,7 +275,7 @@ export function DoctorsPanel({
                 disabled={!form.name || !form.specialty || !form.consultation_fee || saving || uploadingPhoto}
                 className={BTN_PRIMARY}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? "Saving…" : editingId ? "Save changes" : "Save"}
               </button>
             </div>
           </motion.div>
