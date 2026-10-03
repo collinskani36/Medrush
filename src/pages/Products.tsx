@@ -41,7 +41,11 @@ export default function Products() {
   // Picks up ?search=... when arriving from a shared link.
   useEffect(() => {
     const q = searchParams.get("search");
-    if (q !== null) setSearch(q);
+    if (q !== null) {
+      setSearch(q);
+      // Show matching suggestions straight away when arriving from the home page.
+      if (q.trim()) setSuggestOpen(true);
+    }
   }, [searchParams]);
 
   // Close the dropdown when clicking anywhere outside the search box.

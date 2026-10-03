@@ -7,7 +7,7 @@ import Cart from "@/pages/Cart";
 import Checkout from "@/pages/Checkout";
 import OrderTracking from "@/pages/OrderTracking";
 import Prescription from "@/pages/Prescription";
-import Admin from "@/pages/Admin";
+import Admin from "@/pages/admin/Admin";
 import Consultation from "@/pages/Consultation";
 import ConsultationBooking from "@/pages/ConsultationBooking";
 import ConsultationStatus from "@/pages/ConsultationStatus";

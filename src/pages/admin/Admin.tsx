@@ -20,15 +20,15 @@ import type {
   Order, Product, Prescription, Rider, Doctor,
   Consultation, EquipmentRequest,
 } from "@/types";
-import { FIELD, BTN_PRIMARY } from "./admin/shared";
-import { OrdersPanel } from "./admin/AdminOrders";
-import { ProductsPanel } from "./admin/AdminProducts";
-import { PrescriptionsPanel } from "./admin/AdminPrescriptions";
-import { RidersPanel } from "./admin/AdminRiders";
-import { DoctorsPanel } from "./admin/AdminDoctors";
-import { ConsultationsPanel } from "./admin/AdminConsultations";
-import { EquipmentPanel } from "./admin/AdminEquipment";
-import DeliveryPricingPanel from "./admin/AdminDelivery";
+import { FIELD, BTN_PRIMARY } from "./shared";
+import { OrdersPanel } from "./AdminOrders";
+import { ProductsPanel } from "./AdminProducts";
+import { PrescriptionsPanel } from "./AdminPrescriptions";
+import { RidersPanel } from "./AdminRiders";
+import { DoctorsPanel } from "./AdminDoctors";
+import { ConsultationsPanel } from "./AdminConsultations";
+import { EquipmentPanel } from "./AdminEquipment";
+import DeliveryPricingPanel from "./AdminDelivery";
 
 export default function Admin() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -176,7 +176,7 @@ function Dashboard() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-ink)] font-display font-medium text-white">
-              M
+              V
             </div>
             <div className="leading-none">
               <div className="font-display text-base font-medium tracking-display">Admin</div>
@@ -266,6 +266,11 @@ function Dashboard() {
             products={products}
             onToggle={async (id, v) => { await toggleProductStock(id, v); setProducts(await fetchProducts()); }}
             onAdd={async (p) => { await addProduct(p); setProducts(await fetchProducts()); }}
+            onUpdate={async (id, patch) => {
+              const { error } = await supabase!.from("products").update(patch).eq("id", id);
+              if (error) throw error;
+              setProducts(await fetchProducts());
+            }}
             onDelete={async (id) => { await deleteProduct(id); setProducts(await fetchProducts()); }}
             onBulkAdd={async (rows) => {
               const { error } = await supabase!.from("products").insert(rows);
@@ -300,6 +305,11 @@ function Dashboard() {
           <DoctorsPanel
             doctors={doctors}
             onAdd={async (d) => { await addDoctor(d); await loadDoctors(); }}
+            onUpdate={async (id, patch) => {
+              const { error } = await supabase!.from("doctors").update(patch).eq("id", id);
+              if (error) throw error;
+              await loadDoctors();
+            }}
             onToggle={async (id, v) => { await toggleDoctorAvailability(id, v); await loadDoctors(); }}
             onDelete={async (id) => { await deleteDoctor(id); await loadDoctors(); }}
           />
