@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
+import { RecentOrders } from "@/components/RecentOrders";
 import { formatKES } from "@/lib/format";
 
 export default function Cart() {
@@ -122,6 +123,8 @@ export default function Cart() {
             </aside>
           </div>
         )}
+
+        <RecentOrders limit={3} showViewAll className="mt-10" />
       </section>
       <Footer />
     </div>

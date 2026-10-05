@@ -16,3 +16,5 @@ export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseC
 export async function getMessagingIfSupported() {
   return (await isSupported()) ? getMessaging(firebaseApp) : null;
 }
+
+

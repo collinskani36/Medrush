@@ -26,13 +26,30 @@ export function StkPushModal({
 }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const attemptsRef = useRef(0);
+  const failuresRef = useRef(0);
+
+  // Always call the latest handlers without restarting the polling interval.
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  });
 
   useEffect(() => {
     if (!open || !checkoutRequestId) return;
 
     attemptsRef.current = 0;
+    failuresRef.current = 0;
+    let finished = false;
+
+    const stop = () => {
+      finished = true;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
 
     intervalRef.current = setInterval(async () => {
+      if (finished) return;
       attemptsRef.current += 1;
 
       try {
@@ -45,25 +62,36 @@ export function StkPushModal({
           body: JSON.stringify({ checkoutRequestId }),
         });
         const data = await res.json();
+        if (finished) return; // a slower earlier request must not fire twice
+        failuresRef.current = 0;
 
         if (data.status === "completed") {
-          clearInterval(intervalRef.current!);
-          onSuccess();
+          stop();
+          onSuccessRef.current();
         } else if (data.status === "cancelled") {
-          clearInterval(intervalRef.current!);
-          onError("Payment was cancelled. Please try again.");
-        } else if (attemptsRef.current >= 20) {
-          // ~60 seconds
-          clearInterval(intervalRef.current!);
-          onError("Payment timed out. Please try again.");
+          stop();
+          onErrorRef.current("Payment was cancelled. Please try again.");
+        } else if (data.status === "failed") {
+          stop();
+          onErrorRef.current(data.message ?? "Payment failed. Please try again.");
+        } else if (attemptsRef.current >= 40) {
+          // ~2 minutes. The order stays saved and is updated automatically if payment lands later.
+          stop();
+          onErrorRef.current(
+            "We haven't received your payment yet. If you were charged, your order will update automatically — check My Orders.",
+          );
         }
       } catch {
-        clearInterval(intervalRef.current!);
-        onError("Could not verify payment. Check your connection.");
+        // Tolerate a brief connection drop; give up only after 3 failed checks in a row.
+        failuresRef.current += 1;
+        if (failuresRef.current >= 3 && !finished) {
+          stop();
+          onErrorRef.current("Could not verify payment. Check your connection and try again.");
+        }
       }
     }, 3000);
 
-    return () => clearInterval(intervalRef.current!);
+    return stop;
   }, [open, checkoutRequestId]);
 
   const isPolling = !!checkoutRequestId;

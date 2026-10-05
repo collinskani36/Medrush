@@ -119,3 +119,4 @@ export async function listenForegroundMessages(
   if (!messaging) return () => {};
   return onMessage(messaging, cb);
 }
+

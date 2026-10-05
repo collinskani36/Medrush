@@ -72,6 +72,50 @@ export async function fetchOrder(id: string): Promise<Order | null> {
   return mockOrders.find((o) => o.id === id) ?? null;
 }
 
+/** Customer order history: fetch only the given order ids, keeping the order they were passed in. */
+export async function fetchOrdersByIds(ids: string[]): Promise<Order[]> {
+  if (ids.length === 0) return [];
+  let rows: Order[];
+  if (supabaseEnabled && supabase) {
+    const { data, error } = await supabase.from("orders").select("*").in("id", ids);
+    if (error) throw error;
+    rows = (data ?? []) as Order[];
+  } else {
+    rows = mockOrders.filter((o) => ids.includes(o.id));
+  }
+  // Skip ids that no longer exist (e.g. an order deleted by admin).
+  return ids
+    .map((id) => rows.find((o) => o.id === id))
+    .filter((o): o is Order => !!o);
+}
+
+/**
+ * Starts an M-Pesa STK push via the mpesa-stk-push edge function.
+ * For orders the server reads the amount from the order row, so `amount` is only
+ * needed for consultations.
+ */
+export async function startStkPush(input: {
+  phone: string;
+  reference_type: "order" | "consultation";
+  reference_id: string;
+  amount?: number;
+}): Promise<{ checkoutRequestId: string }> {
+  if (!supabaseEnabled) throw new Error("M-Pesa needs Supabase to be configured.");
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mpesa-stk-push`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.checkoutRequestId) {
+    throw new Error(data.error ?? "Could not start M-Pesa payment. Please try again.");
+  }
+  return { checkoutRequestId: data.checkoutRequestId as string };
+}
+
 export async function fetchOrders(): Promise<Order[]> {
   if (supabaseEnabled && supabase) {
     const { data, error } = await supabase.from("orders").select("*, rider:riders(*)").order("created_at", { ascending: false });

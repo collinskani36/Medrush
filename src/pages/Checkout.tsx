@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, MapPin, Smartphone, Banknote, KeyRound } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
 import { formatKES } from "@/lib/format";
-import { createOrder } from "@/lib/api";
+import { createOrder, startStkPush } from "@/lib/api";
 import { StkPushModal } from "@/components/StkPushModal";
 import LocationPicker from "@/components/LocationPicker";
 
@@ -45,8 +45,20 @@ export default function Checkout() {
   const [pinLocation, setPinLocation] = useState<PinLocation | null>(null);
   const [description, setDescription] = useState("");
 
+  // Set to true the moment the order is saved, BEFORE the cart is cleared.
+  // An empty cart after a successful order is expected, so the empty-cart
+  // redirect/early-return below must not fire. A ref (not state) is used so
+  // the value is already correct on the very next render, with no extra tick.
+  const orderPlaced = useRef(false);
+  // Blocks double submits (e.g. StkPushModal calling onSuccess twice).
+  const inFlight = useRef(false);
+  // The unpaid M-Pesa order for the current form contents, so a retry after a
+  // cancelled/failed prompt re-sends the push for the SAME order instead of
+  // creating a duplicate. `sig` detects if the customer changed anything.
+  const pendingOrder = useRef<{ id: string; sig: string } | null>(null);
+
   useEffect(() => {
-    if (items.length === 0 && !submitting) navigate("/cart");
+    if (items.length === 0 && !submitting && !orderPlaced.current) navigate("/cart");
   }, [items, submitting, navigate]);
 
   // ── Derived totals ────────────────────────────────────────────────────────
@@ -67,75 +79,135 @@ export default function Checkout() {
 
   // ── Order submission ──────────────────────────────────────────────────────
 
+  // M-Pesa flow:  create order (unpaid) → STK push for that order → customer pays
+  //               → server marks it paid → onSuccess → tracking page.
+  // COD / manual: create order → tracking page.
+
+  const buildOrderInput = (
+    paymentStatus: "pending" | "pending_verification",
+  ): Parameters<typeof createOrder>[0] => {
+    return {
+      customer_name:    name,
+      customer_phone:   phone,
+      // Combine geocoded address with the optional landmark hint
+      delivery_address: description
+        ? `${pinLocation!.address} (${description})`
+        : pinLocation!.address,
+      items: items.map((i) => ({
+        product_id: i.product.id,
+        name:       i.product.name,
+        price:      i.product.price,
+        quantity:   i.quantity,
+      })),
+      prescription_url: null,
+      subtotal:         safeSubtotal,
+      delivery_fee:     deliveryFee,
+      total,
+      // DB check constraint only allows 'mpesa' | 'cod'
+      payment_method:   method === "manual" ? "mpesa" : method,
+      payment_status:   paymentStatus,
+      mpesa_code:       method === "manual" ? mpesaCode : null,
+      special_instructions: notes || null,
+      // ── Location columns ──
+      delivery_lat:  pinLocation!.lat,
+      delivery_lng:  pinLocation!.lng,
+      distance_km:   pinLocation!.distanceKm,
+    };
+  };
+
+  // Order is saved (and, for M-Pesa, paid). From here on an empty cart is
+  // expected, so mark it BEFORE clearing — see the orderPlaced ref above.
+  const finishOrder = (orderId: string) => {
+    if (orderPlaced.current) return;
+    orderPlaced.current = true;
+    setShowStk(false);
+    clear();
+    // replace: Back from the tracking page shouldn't return to checkout.
+    // submitting is intentionally left as-is on success — this page is about
+    // to unmount, and resetting it would re-expose the empty-cart UI.
+    navigate(`/order/${orderId}`, { replace: true });
+  };
+
+  // Pay on delivery, or a manually typed M-Pesa code.
   const submitOrder = async () => {
-    if (!pinLocation) return;
+    if (!pinLocation || inFlight.current || orderPlaced.current) return;
+    inFlight.current = true;
     setSubmitting(true);
     try {
-      // mpesa  → STK modal already confirmed payment before calling onSuccess
-      // manual → code typed by hand, admin must verify it
-      // cod    → nothing paid yet
-      const paymentStatus =
-        method === "mpesa"  ? "paid" :
-        method === "manual" ? "pending_verification" :
-                              "pending";
-
-      const order = await createOrder({
-        customer_name:    name,
-        customer_phone:   phone,
-        // Combine geocoded address with the optional landmark hint
-        delivery_address: description
-          ? `${pinLocation.address} (${description})`
-          : pinLocation.address,
-        items: items.map((i) => ({
-          product_id: i.product.id,
-          name:       i.product.name,
-          price:      i.product.price,
-          quantity:   i.quantity,
-        })),
-        prescription_url: null,
-        subtotal:         safeSubtotal,
-        delivery_fee:     deliveryFee,
-        total,
-        // DB check constraint only allows 'mpesa' | 'cod'
-        payment_method:   method === "manual" ? "mpesa" : method,
-        payment_status:   paymentStatus,
-        mpesa_code:       method === "manual" ? mpesaCode : null,
-        special_instructions: notes || null,
-        // ── Location columns ──
-        delivery_lat:  pinLocation.lat,
-        delivery_lng:  pinLocation.lng,
-        distance_km:   pinLocation.distanceKm,
-      });
-
-      clear();
-      navigate(`/order/${order.id}`);
+      const order = await createOrder(
+        buildOrderInput(method === "manual" ? "pending_verification" : "pending"),
+      );
+      finishOrder(order.id);
     } catch (e) {
       console.error(e);
+      inFlight.current = false;
+      setSubmitting(false);
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("orders_mpesa_code_unique")) {
         alert("That M-Pesa code has already been used on another order.");
       } else {
         alert("Could not place order. Please try again.");
       }
+    }
+  };
+
+  // M-Pesa STK push.
+  const startMpesa = async () => {
+    if (!pinLocation || inFlight.current || orderPlaced.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setCheckoutRequestId(null);
+    setShowStk(true); // shows "Sending prompt…" while we create the order + push
+    try {
+      const input = buildOrderInput("pending");
+      const sig = JSON.stringify(input);
+
+      let orderId = pendingOrder.current?.sig === sig ? pendingOrder.current.id : null;
+      if (!orderId) {
+        const order = await createOrder(input);
+        orderId = order.id;
+        pendingOrder.current = { id: order.id, sig };
+      }
+
+      const { checkoutRequestId: id } = await startStkPush({
+        phone,
+        reference_type: "order",
+        reference_id: orderId,
+      });
+      setCheckoutRequestId(id); // the modal starts polling for the result
+    } catch (e) {
+      console.error(e);
+      setShowStk(false);
+      alert(
+        e instanceof Error && e.message
+          ? e.message
+          : "Could not start M-Pesa payment. Please try again.",
+      );
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   };
 
   const handleProceed = () => {
     if (!canProceed) return;
-    if (method === "mpesa") {
-      // StkPushModal handles initiating the STK push itself using phone+amount,
-      // then calls onSuccess once the payment is confirmed. We just open it.
-      setCheckoutRequestId(null);
-      setShowStk(true);
-    } else {
-      // "cod" and "manual" skip the STK push and go straight to the DB
-      submitOrder();
-    }
+    if (method === "mpesa") startMpesa();
+    else submitOrder();
   };
 
   // ── Early-exit: empty cart ────────────────────────────────────────────────
+
+  // Order saved, cart cleared, navigation to /order/:id in flight.
+  if (orderPlaced.current) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center text-muted-foreground">
+          Order placed — loading your tracking page…
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0 && !submitting) {
     return (
@@ -363,8 +435,13 @@ export default function Checkout() {
         amount={total}
         submitting={submitting}
         checkoutRequestId={checkoutRequestId}
-        onSuccess={submitOrder}
-        onCancel={() => setShowStk(false)}
+        onSuccess={() => {
+          if (pendingOrder.current) finishOrder(pendingOrder.current.id);
+        }}
+        onCancel={() => {
+          setShowStk(false);
+          setCheckoutRequestId(null);
+        }}
         onError={(msg) => {
           setShowStk(false);
           alert(msg);

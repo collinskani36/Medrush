@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ShoppingCart, Menu, X } from "lucide-react";
+import { ShoppingCart, Menu, X, Package } from "lucide-react";
 import { useState, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { PHARMACY_CONFIG } from "@/config";
@@ -74,6 +74,13 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/orders"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary hover:bg-primary-soft transition-colors"
+            aria-label="My orders"
+          >
+            <Package className="h-5 w-5" />
+          </Link>
           <Link
             to="/cart"
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-secondary hover:bg-primary-soft transition-colors"

@@ -6,6 +6,7 @@ import ProductDetail from "@/pages/ProductDetail";
 import Cart from "@/pages/Cart";
 import Checkout from "@/pages/Checkout";
 import OrderTracking from "@/pages/OrderTracking";
+import MyOrders from "@/pages/MyOrders";
 import Prescription from "@/pages/Prescription";
 import Admin from "@/pages/admin/Admin";
 import Consultation from "@/pages/Consultation";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/order/:id" element={<OrderTracking />} />
+          <Route path="/orders" element={<MyOrders />} />
           <Route path="/prescription" element={<Prescription />} />
           <Route path="/consult" element={<Consultation />} />
           <Route path="/consult/status/:id" element={<ConsultationStatus />} />
