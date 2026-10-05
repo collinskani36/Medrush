@@ -1,7 +1,7 @@
 import { supabase, supabaseEnabled } from "./supabase";
 import { MOCK_PRODUCTS } from "./mockData";
 import type {
-  Order, OrderStatus, Prescription, Product, Rider,
+  Order, OrderStatus, OrderPaymentStatus, Prescription, Product, Rider,
   Doctor, Consultation, ConsultationStatus,
   EquipmentRequest, EquipmentRequestStatus,
 } from "@/types";
@@ -35,16 +35,14 @@ export async function fetchProduct(id: string): Promise<Product | null> {
 }
 
 // ─── createOrder ─────────────────────────────────────────────────────────────
-// The three location fields (delivery_lat, delivery_lng, distance_km) are
-// optional so the mock / offline path still compiles. When present they are
-// spread into the Supabase insert alongside the existing columns.
+// Location fields (delivery_lat, delivery_lng, distance_km) and payment fields
+// (payment_status, mpesa_code) are optional on the Order type, so they flow
+// through the Omit<> below and are spread into the Supabase insert as-is.
+// If payment_status is omitted, the DB default ('pending') applies.
 
 export async function createOrder(
-  input: Omit<Order, "id" | "created_at" | "status"> & {
+  input: Omit<Order, "id" | "created_at" | "status" | "rider" > & {
     status?: OrderStatus;
-    delivery_lat?: number | null;
-    delivery_lng?: number | null;
-    distance_km?: number | null;
   },
 ): Promise<Order> {
   const status: OrderStatus = input.status ?? "received";
@@ -53,7 +51,13 @@ export async function createOrder(
     if (error) throw error;
     return data as Order;
   }
-  const order: Order = { ...input, status, id: `ord_${Date.now().toString(36)}`, created_at: new Date().toISOString() };
+  const order: Order = {
+    ...input,
+    status,
+    payment_status: input.payment_status ?? "pending",
+    id: `ord_${Date.now().toString(36)}`,
+    created_at: new Date().toISOString(),
+  };
   mockOrders.unshift(order);
   emitOrders();
   return order;
@@ -85,6 +89,17 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   }
   const o = mockOrders.find((x) => x.id === id);
   if (o) { o.status = status; emitOrders(); }
+}
+
+/** Admin: mark an order's payment as verified / failed (e.g. after checking a manual M-Pesa code). */
+export async function updateOrderPaymentStatus(id: string, payment_status: OrderPaymentStatus): Promise<void> {
+  if (supabaseEnabled && supabase) {
+    const { error } = await supabase.from("orders").update({ payment_status }).eq("id", id);
+    if (error) throw error;
+    return;
+  }
+  const o = mockOrders.find((x) => x.id === id);
+  if (o) { o.payment_status = payment_status; emitOrders(); }
 }
 
 export async function assignRider(orderId: string, riderId: string | null): Promise<void> {

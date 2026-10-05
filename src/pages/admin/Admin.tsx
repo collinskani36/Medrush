@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import {
   Lock, LogOut, TrendingUp, ClipboardList, Package, FileText,
@@ -29,6 +29,9 @@ import { DoctorsPanel } from "./AdminDoctors";
 import { ConsultationsPanel } from "./AdminConsultations";
 import { EquipmentPanel } from "./AdminEquipment";
 import DeliveryPricingPanel from "./AdminDelivery";
+
+// Loaded only inside /admin, so the Firebase SDK never reaches customers' bundle.
+const EnableNotifications = lazy(() => import("@/components/EnableNotifications"));
 
 export default function Admin() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -183,12 +186,17 @@ function Dashboard() {
               <div className="mt-1 text-[11px] text-muted-foreground">{PHARMACY_CONFIG.name}</div>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-hairline)] px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </button>
+          <div className="flex items-center gap-2">
+            <Suspense fallback={null}>
+              <EnableNotifications />
+            </Suspense>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-hairline)] px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </div>
         </div>
 
         <nav className="no-scrollbar mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2.5">

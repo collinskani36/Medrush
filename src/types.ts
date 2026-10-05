@@ -28,6 +28,14 @@ export type OrderStatus =
   | "out_for_delivery"
   | "delivered";
 
+// Payment state of an order (orders.payment_status).
+// "pending_verification" = customer typed an M-Pesa code by hand; admin must verify it.
+export type OrderPaymentStatus =
+  | "pending"
+  | "pending_verification"
+  | "paid"
+  | "failed";
+
 export interface Rider {
   id: string;
   name: string;
@@ -46,6 +54,10 @@ export interface Order {
   delivery_fee: number;
   total: number;
   payment_method: "mpesa" | "cod";
+  // ── Payment fields (added by the manual M-Pesa migration) ─────────────────
+  // Optional so orders created before the migration still type-check.
+  payment_status?: OrderPaymentStatus;
+  mpesa_code?: string | null;
   status: OrderStatus;
   special_instructions?: string | null;
   rider_id?: string | null;

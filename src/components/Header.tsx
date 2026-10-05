@@ -16,7 +16,7 @@ export function Header() {
   const links = [
     { to: "/", label: "Home" },
     { to: "/products", label: "Pharmacy" },
-    
+
     { to: "/consult", label: "Consult a Doctor" },
     { to: "/services", label: "Home & Clinical Services" },
     { to: "/equipment/request", label: "Request Equipment" },

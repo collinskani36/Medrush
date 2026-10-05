@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Smartphone, Banknote } from "lucide-react";
+import { ArrowLeft, MapPin, Smartphone, Banknote, KeyRound } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCart } from "@/contexts/CartContext";
@@ -19,6 +19,13 @@ interface PinLocation {
   fee: number;        // client-side estimate — display only
 }
 
+// "manual" = customer/tester types an M-Pesa receipt code instead of an STK push.
+// It is stored in the DB as payment_method "mpesa" + payment_status "pending_verification".
+type PayMethod = "mpesa" | "cod" | "manual";
+
+// Dev/test gate: set VITE_ENABLE_MANUAL_MPESA=true in your local .env only.
+const MANUAL_MPESA_ENABLED = import.meta.env.VITE_ENABLE_MANUAL_MPESA === "true";
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function Checkout() {
@@ -28,7 +35,8 @@ export default function Checkout() {
   const [name, setName]         = useState("");
   const [phone, setPhone]       = useState("");
   const [notes, setNotes]       = useState("");
-  const [method, setMethod]     = useState<"mpesa" | "cod">("mpesa");
+  const [method, setMethod]     = useState<PayMethod>("mpesa");
+  const [mpesaCode, setMpesaCode] = useState("");
   const [showStk, setShowStk]           = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
@@ -47,9 +55,15 @@ export default function Checkout() {
   const safeSubtotal  = Number(subtotal) || 0;
   const total         = safeSubtotal + deliveryFee;
 
-  const phoneOk         = /^0\d{9}$/.test(phone);
+  const phoneOk          = /^0\d{9}$/.test(phone);
+  const codeOk           = /^[A-Z0-9]{10}$/.test(mpesaCode); // M-Pesa receipts are 10 chars
   const hasValidDelivery = pinLocation !== null;
-  const canProceed      = !!name && phoneOk && hasValidDelivery && !submitting;
+  const canProceed =
+    !!name &&
+    phoneOk &&
+    hasValidDelivery &&
+    !submitting &&
+    (method !== "manual" || codeOk);
 
   // ── Order submission ──────────────────────────────────────────────────────
 
@@ -57,6 +71,14 @@ export default function Checkout() {
     if (!pinLocation) return;
     setSubmitting(true);
     try {
+      // mpesa  → STK modal already confirmed payment before calling onSuccess
+      // manual → code typed by hand, admin must verify it
+      // cod    → nothing paid yet
+      const paymentStatus =
+        method === "mpesa"  ? "paid" :
+        method === "manual" ? "pending_verification" :
+                              "pending";
+
       const order = await createOrder({
         customer_name:    name,
         customer_phone:   phone,
@@ -74,9 +96,12 @@ export default function Checkout() {
         subtotal:         safeSubtotal,
         delivery_fee:     deliveryFee,
         total,
-        payment_method:   method,
+        // DB check constraint only allows 'mpesa' | 'cod'
+        payment_method:   method === "manual" ? "mpesa" : method,
+        payment_status:   paymentStatus,
+        mpesa_code:       method === "manual" ? mpesaCode : null,
         special_instructions: notes || null,
-        // ── New location columns ──
+        // ── Location columns ──
         delivery_lat:  pinLocation.lat,
         delivery_lng:  pinLocation.lng,
         distance_km:   pinLocation.distanceKm,
@@ -86,7 +111,12 @@ export default function Checkout() {
       navigate(`/order/${order.id}`);
     } catch (e) {
       console.error(e);
-      alert("Could not place order. Please try again.");
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("orders_mpesa_code_unique")) {
+        alert("That M-Pesa code has already been used on another order.");
+      } else {
+        alert("Could not place order. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -100,6 +130,7 @@ export default function Checkout() {
       setCheckoutRequestId(null);
       setShowStk(true);
     } else {
+      // "cod" and "manual" skip the STK push and go straight to the DB
       submitOrder();
     }
   };
@@ -227,7 +258,42 @@ export default function Checkout() {
               title="Pay on delivery"
               subtitle="Cash when rider arrives"
             />
+            {MANUAL_MPESA_ENABLED && (
+              <PaymentOption
+                active={method === "manual"}
+                onClick={() => setMethod("manual")}
+                icon={<KeyRound className="h-5 w-5" />}
+                title="Enter M-Pesa code"
+                subtitle="Test mode: skip STK push"
+              />
+            )}
           </div>
+
+          {MANUAL_MPESA_ENABLED && method === "manual" && (
+            <div className="mt-4">
+              <Field label="M-Pesa code">
+                <input
+                  value={mpesaCode}
+                  onChange={(e) =>
+                    setMpesaCode(e.target.value.toUpperCase().replace(/\s/g, ""))
+                  }
+                  maxLength={10}
+                  className={input}
+                  placeholder="QGH7XYZ123"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
+              </Field>
+              {mpesaCode && !codeOk && (
+                <p className="mt-2 text-xs text-destructive">
+                  Code is 10 letters/digits
+                </p>
+              )}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Order will be marked as awaiting payment verification.
+              </p>
+            </div>
+          )}
         </Card>
 
         {/* Special instructions */}
@@ -283,6 +349,10 @@ export default function Checkout() {
             ? "Set delivery location to continue"
             : method === "mpesa"
             ? `Pay ${formatKES(total)} with M-Pesa`
+            : method === "manual"
+            ? codeOk
+              ? `Place order with code · ${formatKES(total)}`
+              : "Enter M-Pesa code to continue"
             : `Place order · ${formatKES(total)}`}
         </button>
       </section>
@@ -340,6 +410,7 @@ function PaymentOption({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors ${
         active ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary"

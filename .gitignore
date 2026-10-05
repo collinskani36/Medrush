@@ -36,3 +36,4 @@ dist-ssr
 supabase/
 android/
 .vercel
+service-account.json
