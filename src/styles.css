@@ -160,6 +160,71 @@
   .tracking-display { letter-spacing: -0.025em; }
 }
 
+/* ============================================================
+   Heartbeat loader
+   --hb-mask must match the surface the loader sits on (the two
+   sliding blocks hide/reveal the line using that colour).
+   <HeartbeatLoader tone="surface | background | card" /> sets it.
+   ============================================================ */
+.hb-loader {
+  --hb-mask: var(--surface);
+  position: relative;
+  width: 150px;
+  height: 73px;
+  overflow: hidden;
+}
+
+.hb-loader svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hb-loader polyline {
+  stroke: var(--primary);
+}
+
+.hb-loader .hb-in,
+.hb-loader .hb-out {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background-color: var(--hb-mask);
+}
+
+.hb-loader .hb-in {
+  right: 0;
+  width: 100%;
+  animation: hb-in 2.5s linear infinite;
+}
+
+.hb-loader .hb-out {
+  right: -120%;
+  width: 120%;
+  animation: hb-out 2.5s linear infinite;
+}
+
+@keyframes hb-in {
+  0% { width: 100%; }
+  50% { width: 0; }
+  100% { width: 0; }
+}
+
+@keyframes hb-out {
+  0% { left: -120%; }
+  30% { left: -120%; }
+  100% { left: 0; }
+}
+
+/* Reduced motion: show the line still instead of sweeping it */
+@media (prefers-reduced-motion: reduce) {
+  .hb-loader .hb-in,
+  .hb-loader .hb-out {
+    animation: none;
+    display: none;
+  }
+}
+
 /* Mobile font size reduction */
 @media (max-width: 767px) {
   html {

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
 import { fetchConsultation } from "@/lib/api";
 import { formatKES } from "@/lib/format";
 import type { Consultation, ConsultationStatus as Status } from "@/types";
@@ -37,9 +38,7 @@ export default function ConsultationStatus() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto max-w-3xl px-4 py-20 text-center text-muted-foreground">
-          Loading…
-        </div>
+        <HeartbeatLoader tone="background" label="Loading your consultation" className="min-h-[50vh]" />
         <Footer />
       </div>
     );

@@ -8,6 +8,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
 import { fetchDoctors } from "@/lib/api";
 import type { Doctor } from "@/types";
 
@@ -299,11 +300,7 @@ function DoctorsView({
 
       <section className="mx-auto max-w-5xl px-3 py-5 sm:px-4 md:py-10">
         {loading && (
-          <div className="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="h-72 animate-pulse rounded-2xl bg-muted sm:h-96 sm:rounded-3xl" />
-            ))}
-          </div>
+          <HeartbeatLoader tone="background" label="Finding available doctors" className="py-16" />
         )}
 
         {!loading && doctors.length === 0 && (

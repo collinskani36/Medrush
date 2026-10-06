@@ -4,7 +4,8 @@ import { ShieldAlert, ArrowLeft, ArrowRight, Minus, Plus, ShieldCheck, Truck } f
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
-import { fetchProduct, fetchProducts } from "@/lib/api";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
+import { fetchProduct, fetchProducts, getCachedProducts } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 import { formatKES } from "@/lib/format";
 import { getCategoryIcon } from "@/lib/categoryIcons";
@@ -12,31 +13,48 @@ import type { Product } from "@/types";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [related, setRelated] = useState<Product[]>([]);
+  // Seed from the products cache so opening a product from the list is instant.
+  const [product, setProduct] = useState<Product | null>(
+    () => getCachedProducts()?.find((p) => p.id === id) ?? null,
+  );
+  const [loading, setLoading] = useState<boolean>(() => product === null);
+  const [related, setRelated] = useState<Product[]>(() => getCachedProducts() ?? []);
   const [qty, setQty] = useState(1);
   const { add } = useCart();
 
   useEffect(() => {
     if (!id) return;
     setQty(1);
-    fetchProduct(id).then(setProduct);
-    fetchProducts().then((all) => setRelated(all));
+    const cached = getCachedProducts()?.find((p) => p.id === id);
+    if (cached) setProduct(cached);
+    else setLoading(true);
+    fetchProduct(id)
+      .then(setProduct)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+    fetchProducts().then((all) => setRelated(all)).catch(console.error);
   }, [id]);
 
   if (!product) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="mx-auto grid max-w-6xl gap-12 px-4 py-14 md:grid-cols-2 md:gap-16" aria-busy="true">
-          <div className="aspect-square animate-pulse rounded-3xl bg-muted" />
-          <div className="space-y-4 md:py-4">
-            <div className="h-3 w-24 animate-pulse rounded-full bg-muted" />
-            <div className="h-10 w-3/4 animate-pulse rounded-xl bg-muted" />
-            <div className="h-8 w-32 animate-pulse rounded-xl bg-muted" />
-            <div className="h-20 w-full max-w-md animate-pulse rounded-xl bg-muted" />
+        {loading ? (
+          <HeartbeatLoader tone="background" label="Loading product" className="min-h-[50vh]" />
+        ) : (
+          <div className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
+            <h1 className="tracking-display font-display text-2xl font-medium">Product not found</h1>
+            <p className="text-sm text-muted-foreground">
+              It may have been removed, or the link is incorrect.
+            </p>
+            <Link
+              to="/products"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[var(--color-primary-deep)]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to products
+            </Link>
           </div>
-        </div>
+        )}
         <Footer />
       </div>
     );
@@ -67,9 +85,9 @@ export default function ProductDetail() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-2 md:gap-16 md:py-14">
+      <section className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:grid-cols-[340px_1fr] md:items-start md:gap-14 md:py-12">
         {/* Image */}
-        <div className="relative overflow-hidden rounded-3xl border border-[var(--color-hairline)] bg-surface shadow-[var(--shadow-ambient)]">
+        <div className="relative mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl border border-[var(--color-hairline)] bg-surface shadow-[var(--shadow-ambient)] md:sticky md:top-24 md:max-w-none">
           {product.image_url ? (
             <img src={product.image_url} alt={product.name} className="aspect-square w-full object-cover" />
           ) : (
@@ -77,8 +95,8 @@ export default function ProductDetail() {
               <div className="rx-texture absolute inset-0 opacity-50" style={{ backgroundColor: "var(--color-primary-deep)" }} />
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary-deep)] to-[var(--color-ink)] opacity-95" />
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_75%_10%,oklch(0.80_0.125_82/0.18),transparent)]" />
-              <div className="relative grid h-28 w-28 place-items-center rounded-3xl border border-white/15 bg-white/10 text-accent backdrop-blur-md">
-                <Icon className="h-14 w-14" />
+              <div className="relative grid h-20 w-20 place-items-center rounded-2xl border border-white/15 bg-white/10 text-accent backdrop-blur-md">
+                <Icon className="h-9 w-9" />
               </div>
             </div>
           )}

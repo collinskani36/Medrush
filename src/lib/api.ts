@@ -16,13 +16,38 @@ function emitOrders() {
   orderListeners.forEach((l) => l([...mockOrders]));
 }
 
-export async function fetchProducts(): Promise<Product[]> {
-  if (supabaseEnabled && supabase) {
-    const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as Product[];
-  }
-  return MOCK_PRODUCTS;
+// ─── Products cache ──────────────────────────────────────────────────────────
+// Pages read getCachedProducts() for an instant first paint (no loader after the
+// first visit) and still call fetchProducts() to refresh in the background.
+// Concurrent callers share one in-flight request instead of hitting Supabase twice.
+let productsCache: Product[] | null = null;
+let productsInflight: Promise<Product[]> | null = null;
+
+export function getCachedProducts(): Product[] | null {
+  return productsCache;
+}
+
+export function clearProductsCache(): void {
+  productsCache = null;
+}
+
+export function fetchProducts(): Promise<Product[]> {
+  if (productsInflight) return productsInflight;
+  productsInflight = (async () => {
+    try {
+      if (supabaseEnabled && supabase) {
+        const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+        if (error) throw error;
+        productsCache = (data ?? []) as Product[];
+      } else {
+        productsCache = MOCK_PRODUCTS;
+      }
+      return productsCache;
+    } finally {
+      productsInflight = null;
+    }
+  })();
+  return productsInflight;
 }
 
 export async function fetchProduct(id: string): Promise<Product | null> {
@@ -282,6 +307,7 @@ export async function toggleProductStock(id: string, in_stock: boolean) {
   if (supabaseEnabled && supabase) {
     const { error } = await supabase.from("products").update({ in_stock }).eq("id", id);
     if (error) throw error;
+    clearProductsCache();
     return;
   }
   const p = MOCK_PRODUCTS.find((x) => x.id === id);
@@ -292,6 +318,7 @@ export async function addProduct(input: Omit<Product, "id" | "created_at">) {
   if (supabaseEnabled && supabase) {
     const { data, error } = await supabase.from("products").insert(input).select().single();
     if (error) throw error;
+    clearProductsCache();
     return data as Product;
   }
   const p: Product = { ...input, id: `prod_${Date.now().toString(36)}`, created_at: new Date().toISOString() };
@@ -303,6 +330,7 @@ export async function deleteProduct(id: string): Promise<void> {
   if (supabaseEnabled && supabase) {
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) throw error;
+    clearProductsCache();
     return;
   }
   const idx = MOCK_PRODUCTS.findIndex((x) => x.id === id);

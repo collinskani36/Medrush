@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -18,6 +26,9 @@ import { SplashScreen } from "@capacitor/splash-screen";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PHARMACY_CONFIG } from "@/config";
+import { fetchProducts, getCachedProducts } from "@/lib/api";
+import { getCategoryIcon } from "@/lib/categoryIcons";
+import type { Product } from "@/types";
 import heroImg from "@/assets/home-hero.jpeg";
 
 // Regulator registration number shown in the trust strip.
@@ -28,6 +39,12 @@ const NURSING_IMG = "/services/nursing.jfif";
 const DOCTORS_IMG = "/services/doctors.jpg";
 
 const SLIDE_INTERVAL_MS = 5000;
+
+// Search dropdown
+const MAX_SUGGESTIONS = 6;
+
+// Where a suggestion should take the user. Keep in sync with Products.tsx.
+const productHref = (p: Product) => `/products/${p.id}`;
 
 const SLIDES = [
   {
@@ -86,6 +103,15 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
 
+  // Search dropdown state. Starts from the cached list so suggestions work instantly on repeat visits.
+  const [products, setProducts] = useState<Product[]>(() => getCachedProducts() ?? []);
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(
+    () => getCachedProducts() === null,
+  );
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const searchBoxRef = useRef<HTMLFormElement>(null);
+
   // Keep the native splash (logo) on screen until the first hero image has
   // loaded and painted, then fade it out. No-op in the browser.
   useEffect(() => {
@@ -121,6 +147,37 @@ export default function Home() {
     });
   }, []);
 
+  // Load the product list so the search box can suggest medicines while typing.
+  useEffect(() => {
+    let cancelled = false;
+    fetchProducts()
+      .then((list) => {
+        if (!cancelled) setProducts(list);
+      })
+      .catch((err) => console.error(err))
+      .finally(() => {
+        if (!cancelled) setLoadingProducts(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Close the dropdown when tapping/clicking anywhere outside the search box.
+  useEffect(() => {
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSuggestOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+    };
+  }, []);
+
   // Auto-advance. Depends on `index` so tapping a dot restarts the 5s timer.
   useEffect(() => {
     const timer = setTimeout(() => setIndex((i) => (i + 1) % SLIDES.length), SLIDE_INTERVAL_MS);
@@ -131,9 +188,53 @@ export default function Home() {
     setIndex((i) => (i + dir + SLIDES.length) % SLIDES.length);
   }, []);
 
+  // ---- Search suggestions (name matches, starts-with ranked first) ----
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const matches = products.filter((p) => p.name.toLowerCase().includes(q));
+    matches.sort((a, b) => {
+      const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+      const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+      return aStarts - bStarts || a.name.localeCompare(b.name);
+    });
+    return matches.slice(0, MAX_SUGGESTIONS);
+  }, [products, query]);
+
+  const showDropdown = suggestOpen && query.trim().length > 0;
+
+  const openProduct = (p: Product) => {
+    setSuggestOpen(false);
+    navigate(productHref(p));
+  };
+
+  const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSuggestOpen(true);
+      setActiveIdx((i) => (suggestions.length ? (i + 1) % suggestions.length : -1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) =>
+        suggestions.length ? (i <= 0 ? suggestions.length - 1 : i - 1) : -1,
+      );
+    } else if (e.key === "Enter") {
+      // Only jump straight to a product if the user arrowed onto one;
+      // otherwise Enter runs the normal search below.
+      const pick = suggestions[activeIdx];
+      if (pick) {
+        e.preventDefault();
+        openProduct(pick);
+      }
+    } else if (e.key === "Escape") {
+      setSuggestOpen(false);
+    }
+  };
+
   const onSearch = (e: FormEvent) => {
     e.preventDefault();
     const q = query.trim();
+    setSuggestOpen(false);
     navigate(q ? `/products?search=${encodeURIComponent(q)}` : "/products");
   };
 
@@ -232,22 +333,102 @@ export default function Home() {
             What do you need today?
           </h2>
 
-          <form onSubmit={onSearch} role="search" className="relative mt-3">
-            <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+          <form
+            ref={searchBoxRef}
+            onSubmit={onSearch}
+            role="search"
+            className="relative z-30 mt-3"
+          >
+            <Search className="pointer-events-none absolute left-5 top-7 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
+              role="combobox"
+              aria-expanded={showDropdown}
+              aria-controls="home-product-suggestions"
+              aria-autocomplete="list"
+              aria-activedescendant={activeIdx >= 0 ? `home-suggestion-${activeIdx}` : undefined}
+              autoComplete="off"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setSuggestOpen(true);
+                setActiveIdx(-1);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onKeyDown={onSearchKeyDown}
               placeholder="Search medicines"
               aria-label="Search medicines"
               className="h-14 w-full rounded-full border-2 border-white/60 bg-white pl-12 pr-32 text-base text-foreground shadow-[0_12px_32px_-8px_rgba(5,20,60,0.55)] outline-none transition-all placeholder:text-muted-foreground/70 focus:border-accent focus:ring-4 focus:ring-accent/30"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center gap-1.5 rounded-full bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.04] active:scale-95"
+              className="absolute right-2 top-7 inline-flex h-10 -translate-y-1/2 items-center gap-1.5 rounded-full bg-accent px-6 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.04] active:scale-95"
             >
               Search
             </button>
+
+            {/* Live suggestions */}
+            <AnimatePresence>
+              {showDropdown && (
+                <motion.ul
+                  id="home-product-suggestions"
+                  role="listbox"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 right-0 top-16 z-30 max-h-96 overflow-y-auto rounded-2xl border border-[var(--color-hairline)] bg-card p-2 shadow-[var(--shadow-card)]"
+                >
+                  {suggestions.length === 0 ? (
+                    <li className="px-3 py-4 text-center text-sm text-muted-foreground">
+                      {loadingProducts ? (
+                        "Loading medicines…"
+                      ) : (
+                        <>No medicines match “{query.trim()}”</>
+                      )}
+                    </li>
+                  ) : (
+                    suggestions.map((p, i) => {
+                      const Icon = getCategoryIcon(p.category);
+                      const active = i === activeIdx;
+                      return (
+                        <li
+                          key={p.id}
+                          id={`home-suggestion-${i}`}
+                          role="option"
+                          aria-selected={active}
+                        >
+                          <button
+                            type="button"
+                            onMouseEnter={() => setActiveIdx(i)}
+                            onClick={() => openProduct(p)}
+                            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                              active ? "bg-primary-soft" : "hover:bg-primary-soft"
+                            }`}
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-foreground">
+                                {p.name}
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {p.category}
+                                {p.requires_prescription ? " · Prescription required" : ""}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-sm font-semibold text-primary">
+                              KES {p.price.toLocaleString()}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })
+                  )}
+                </motion.ul>
+              )}
+            </AnimatePresence>
           </form>
 
           {/* 2. The three primary actions */}

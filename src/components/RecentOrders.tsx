@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Package } from "lucide-react";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
 import { fetchOrdersByIds } from "@/lib/api";
 import { getSavedOrderIds } from "@/lib/orderHistory";
 import { formatKES } from "@/lib/format";
@@ -65,7 +66,7 @@ export function RecentOrders({
   // Still loading: render nothing on the cart page rather than flashing a placeholder.
   if (orders === null) {
     return showEmptyState ? (
-      <div className={`text-sm text-muted-foreground ${className}`}>Loading your orders…</div>
+      <HeartbeatLoader tone="background" label="Loading your orders" className={`py-12 ${className}`} />
     ) : null;
   }
 

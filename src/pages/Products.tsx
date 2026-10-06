@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, X, RotateCcw, FileText, ChevronDown } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ProductCard } from "@/components/ProductCard";
-import { fetchProducts } from "@/lib/api";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
+import { fetchProducts, getCachedProducts } from "@/lib/api";
 import { CATEGORIES } from "@/config";
 import { getCategoryIcon } from "@/lib/categoryIcons";
 import type { Product } from "@/types";
@@ -21,7 +22,10 @@ export default function Products() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  // Start from the cached list when we have one, so repeat visits show products instantly.
+  const [products, setProducts] = useState<Product[]>(() => getCachedProducts() ?? []);
+  const [loading, setLoading] = useState<boolean>(() => getCachedProducts() === null);
+  const [loadError, setLoadError] = useState(false);
   const [cat, setCat] = useState<string | null>(() => searchParams.get("category"));
   const [search, setSearch] = useState<string>(() => searchParams.get("search") ?? "");
   const [sort, setSort] = useState<"popular" | "price_asc" | "price_desc">("popular");
@@ -34,9 +38,20 @@ export default function Products() {
   const searchBoxRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    fetchProducts().then(setProducts).catch(console.error);
+  const loadProducts = useCallback(() => {
+    setLoadError(false);
+    fetchProducts()
+      .then(setProducts)
+      .catch((err) => {
+        console.error(err);
+        setLoadError(true);
+      })
+      .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
 
   // Picks up ?search=... when arriving from a shared link.
   useEffect(() => {
@@ -217,7 +232,7 @@ export default function Products() {
                     >
                       {suggestions.length === 0 ? (
                         <li className="px-3 py-4 text-center text-sm text-muted-foreground">
-                          No medicines match “{search.trim()}”
+                          {loading ? "Loading medicines…" : <>No medicines match “{search.trim()}”</>}
                         </li>
                       ) : (
                         suggestions.map((p, i) => {
@@ -339,8 +354,9 @@ export default function Products() {
                       {cat}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {categoryProducts.length}{" "}
-                      {categoryProducts.length === 1 ? "item" : "items"}
+                      {loading
+                        ? "Loading…"
+                        : `${categoryProducts.length} ${categoryProducts.length === 1 ? "item" : "items"}`}
                     </p>
                   </div>
                 </div>
@@ -402,7 +418,28 @@ export default function Products() {
                 </label>
               </div>
 
-              {categoryProducts.length > 0 ? (
+              {loading ? (
+                <HeartbeatLoader tone="surface" label="Loading medicines" className="mt-7 py-14" />
+              ) : loadError ? (
+                <div className="mt-7 flex flex-col items-center gap-3 rounded-3xl border border-dashed border-[var(--color-hairline)] bg-card px-6 py-14 text-center">
+                  <div className="tracking-display font-display text-xl font-medium">
+                    Couldn't load medicines
+                  </div>
+                  <p className="max-w-xs text-sm text-muted-foreground">
+                    Check your internet connection and try again.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoading(true);
+                      loadProducts();
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.02]"
+                  >
+                    <RotateCcw className="h-4 w-4" /> Try again
+                  </button>
+                </div>
+              ) : categoryProducts.length > 0 ? (
                 <div className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5">
                   {categoryProducts.map((p) => (
                     <ProductCard key={p.id} product={p} />

@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, ShieldCheck, Clock, Stethoscope, Lock, Loader2, BadgeCheck,
+  ArrowLeft, ShieldCheck, Clock, Stethoscope, Lock, BadgeCheck,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { StkPushModal } from "@/components/StkPushModal";
+import { HeartbeatLoader } from "@/components/HeartbeatLoader";
 import { fetchDoctor, createConsultation } from "@/lib/api";
 import { formatKES } from "@/lib/format";
 import type { Doctor } from "@/types";
@@ -18,6 +19,7 @@ export default function ConsultationBooking() {
   const navigate = useNavigate();
   const location = useLocation();
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [doctorLoading, setDoctorLoading] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [reason, setReason] = useState("");
@@ -33,7 +35,11 @@ export default function ConsultationBooking() {
 
   useEffect(() => {
     if (!doctorId) return;
-    fetchDoctor(doctorId).then(setDoctor);
+    setDoctorLoading(true);
+    fetchDoctor(doctorId)
+      .then(setDoctor)
+      .catch(console.error)
+      .finally(() => setDoctorLoading(false));
   }, [doctorId]);
 
   const phoneOk = /^0\d{9}$/.test(phone);
@@ -99,9 +105,22 @@ export default function ConsultationBooking() {
     return (
       <div className="min-h-screen bg-surface">
         <Header />
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 px-4 py-24 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </div>
+        {doctorLoading ? (
+          <HeartbeatLoader tone="surface" label="Loading doctor" className="min-h-[50vh]" />
+        ) : (
+          <div className="mx-auto flex min-h-[50vh] max-w-md flex-col items-center justify-center gap-3 px-4 text-center">
+            <h1 className="tracking-display font-display text-2xl font-medium">Doctor not found</h1>
+            <p className="text-sm text-muted-foreground">
+              This doctor may no longer be available.
+            </p>
+            <Link
+              to={backTo}
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-[var(--color-primary-deep)]"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to doctors
+            </Link>
+          </div>
+        )}
         <Footer />
       </div>
     );
